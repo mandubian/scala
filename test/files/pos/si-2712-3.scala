@@ -1,9 +1,9 @@
 package test
 
 object Test1 {
-  class Foo[T, F[_]]
+  class Foo[F[_], T]
   def meh[M[_[_]], F[_]](x: M[F]): M[F] = x
-  meh(new Foo[Int, List]) // solves ?M = [X[_]]Foo[Int, X[_]] ?A = List ...
+  meh(new Foo[List, Int]) // solves ?M = [X[_]]Foo[Int, X[_]] ?A = List ...
 }
 
 object Test2 {
@@ -19,6 +19,6 @@ object Test3 {
   class Foo[F[_[_]], G[_[_]]]
   new Foo[TC, TC2]
 
-  def meh[G[_[_[_]]]](g: G[TC2]) = ???
+  def meh[G[_[_[_]]]](g: G[TC]) = ???
   meh(new Foo[TC, TC2]) // solves ?G = [X[_[_]]]Foo[TC, X]
 }

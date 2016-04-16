@@ -3170,7 +3170,7 @@ trait Types
 
             // if first type is higher-kind, currify from right to left
             if(tp.typeArgs.head.typeParams.lengthCompare(0) > 0) {
-              println(s"typeArgs.head.typeArgs:${typeArgs.head.typeArgs}")
+              println("HK")
               val captured = typeArgs.length
               val (prefix, suffix) = tp.typeArgs.splitAt(captured)
               //
@@ -3187,7 +3187,7 @@ trait Types
             }
             // if first type is NOT higher-kind, currify from left to right
             else {
-              println(s"typeArgs:${typeArgs}")
+              println("Not HK")
               val captured = tp.typeArgs.length-typeArgs.length
               val (prefix, suffix) = tp.typeArgs.splitAt(captured)
               val absSyms = tp.typeSymbolDirect.typeParams.drop(captured)
