@@ -3164,18 +3164,43 @@ trait Types
               freeSym setInfo info
             }
 
-            val captured = tp.typeArgs.length-typeArgs.length
-            val (prefix, suffix) = tp.typeArgs.splitAt(captured)
-            val absSyms = tp.typeSymbolDirect.typeParams.drop(captured)
+            println(s"typeArgs:${typeArgs}")
+            println(s"tp.typeArgs:${tp.typeArgs}")
+            println(s"tp.typeArgs.head.typeParams:${tp.typeArgs.head.typeParams}")
 
-            val freeSyms = absSyms.map(sym => mkFreeSym(tp.typeSymbol, sym.asType))
-            val poly = PolyType(freeSyms, appliedType(tp.typeConstructor, prefix ++ freeSyms.map(_.tpeHK)))
+            // if first type is higher-kind, currify from right to left
+            if(tp.typeArgs.head.typeParams.lengthCompare(0) > 0) {
+              println(s"typeArgs.head.typeArgs:${typeArgs.head.typeArgs}")
+              val captured = typeArgs.length
+              val (prefix, suffix) = tp.typeArgs.splitAt(captured)
+              //
+              val absSyms = tp.typeSymbolDirect.typeParams.take(captured)
 
-            val lhs = if (isLowerBound) suffix else typeArgs
-            val rhs = if (isLowerBound) typeArgs else suffix
-            // This is a higher-kinded type var with same arity as tp.
-            // If so (see SI-7517), side effect: adds the type constructor itself as a bound.
-            isSubArgs(lhs, rhs, params, AnyDepth) && { addBound(poly.typeConstructor); true }
+              val freeSyms = absSyms.map(sym => mkFreeSym(tp.typeSymbol, sym.asType))
+              val poly = PolyType(freeSyms, appliedType(tp.typeConstructor, freeSyms.map(_.tpeHK) ++ suffix))
+
+              val lhs = if (isLowerBound) prefix else typeArgs
+              val rhs = if (isLowerBound) typeArgs else prefix
+              // This is a higher-kinded type var with same arity as tp.
+              // If so (see SI-7517), side effect: adds the type constructor itself as a bound.
+              isSubArgs(lhs, rhs, params, AnyDepth) && { addBound(poly.typeConstructor); true }
+            }
+            // if first type is NOT higher-kind, currify from left to right
+            else {
+              println(s"typeArgs:${typeArgs}")
+              val captured = tp.typeArgs.length-typeArgs.length
+              val (prefix, suffix) = tp.typeArgs.splitAt(captured)
+              val absSyms = tp.typeSymbolDirect.typeParams.drop(captured)
+
+              val freeSyms = absSyms.map(sym => mkFreeSym(tp.typeSymbol, sym.asType))
+              val poly = PolyType(freeSyms, appliedType(tp.typeConstructor, prefix ++ freeSyms.map(_.tpeHK)))
+
+              val lhs = if (isLowerBound) suffix else typeArgs
+              val rhs = if (isLowerBound) typeArgs else suffix
+              // This is a higher-kinded type var with same arity as tp.
+              // If so (see SI-7517), side effect: adds the type constructor itself as a bound.
+              isSubArgs(lhs, rhs, params, AnyDepth) && { addBound(poly.typeConstructor); true }
+            }
           } else
             false
         }
