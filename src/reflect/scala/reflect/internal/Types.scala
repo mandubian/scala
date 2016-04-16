@@ -3164,13 +3164,8 @@ trait Types
               freeSym setInfo info
             }
 
-            println(s"typeArgs:${typeArgs}")
-            println(s"tp.typeArgs:${tp.typeArgs}")
-            println(s"tp.typeArgs.head.typeParams:${tp.typeArgs.head.typeParams}")
-
-            // if first type is higher-kind, currify from right to left
+            // if first type is higher-kind, start on the left side and keep left to right order
             if(tp.typeArgs.head.typeParams.lengthCompare(0) > 0) {
-              println("HK")
               val captured = typeArgs.length
               val (prefix, suffix) = tp.typeArgs.splitAt(captured)
               //
@@ -3185,9 +3180,8 @@ trait Types
               // If so (see SI-7517), side effect: adds the type constructor itself as a bound.
               isSubArgs(lhs, rhs, params, AnyDepth) && { addBound(poly.typeConstructor); true }
             }
-            // if first type is NOT higher-kind, currify from left to right
+            // if first type is NOT higher-kind, start on the right and keep left to right order
             else {
-              println("Not HK")
               val captured = tp.typeArgs.length-typeArgs.length
               val (prefix, suffix) = tp.typeArgs.splitAt(captured)
               val absSyms = tp.typeSymbolDirect.typeParams.drop(captured)
