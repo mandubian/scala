@@ -1,0 +1,13 @@
+si-2712-3.scala:11: error: no type parameters for method meh: (g: G[test.Test6.TC,A])Nothing exist so that it can be applied to arguments (test.Test6.Foo[test.Test6.TC,test.Test6.TC2,String,Int])
+ --- because ---
+argument expression's type is not compatible with formal parameter type;
+ found   : test.Test6.Foo[test.Test6.TC,test.Test6.TC2,String,Int]
+ required: ?G[test.Test6.TC, ?A]
+  meh(new Foo[TC, TC2, String, Int]) // solves ?G = [X[_[_]], A]Foo[X, Y, String, A]
+  ^
+si-2712-3.scala:11: error: type mismatch;
+ found   : test.Test6.Foo[test.Test6.TC,test.Test6.TC2,String,Int]
+ required: G[test.Test6.TC,A]
+  meh(new Foo[TC, TC2, String, Int]) // solves ?G = [X[_[_]], A]Foo[X, Y, String, A]
+      ^
+two errors found
