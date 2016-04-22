@@ -27,11 +27,5 @@ object Test {
     implicit def baz[T]: Baz[T] = new Baz[T] {}
   }
 
-  def run[T: Baz](t: T)(implicit foo: Foo[T])(implicit bar: Bar[foo.A]): bar.B = bar.value
-
-  val value = run(23)
-  assert(value: Boolean)
-
-  val value2 = run(23)(Baz.baz, Foo.fooIS)(Bar.barSB)
-  assert(value: Boolean)
+  def run[T: Baz](t: T)(implicit foo: Foo[T])(bar: Bar[foo.A]): bar.B = bar.value
 }

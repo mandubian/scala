@@ -1,0 +1,4 @@
+multi-implicits.scala:30: error: parameter lists following an implicit parameter list must also be implicit
+  def run[T: Baz](t: T)(implicit foo: Foo[T])(bar: Bar[foo.A]): bar.B = bar.value
+                                              ^
+one error found

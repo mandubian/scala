@@ -2216,7 +2216,9 @@ self =>
         if (in.token == IMPLICIT) {
           in.nextToken()
           implicitmod = Flags.IMPLICIT
-        }
+        } else if (implicitmod != 0)
+          syntaxError(in.lastOffset, "parameter lists following an implicit parameter list must also be implicit")
+
         commaSeparated(param(owner, implicitmod, caseParam  ))
       }
       val vds = new ListBuffer[List[ValDef]]
