@@ -129,7 +129,7 @@ abstract class TreeBuilder {
       def makeEvidenceParam(tpt: Tree) = ValDef(mods | IMPLICIT | SYNTHETIC, freshTermName(nme.EVIDENCE_PARAM_PREFIX), tpt, EmptyTree)
       val evidenceParams = contextBounds map makeEvidenceParam
 
-      val (prefix, suffix) = vparamss.span(_.headOption.map(!_.mods.hasFlag(IMPLICIT)).getOrElse(false))
+      val (prefix, suffix) = vparamss.span(_.headOption.map(!_.mods.hasFlag(IMPLICIT)).getOrElse(true))
       prefix ::: (suffix match {
         case is :: iss => List(evidenceParams ::: is) ::: iss
         case Nil => List(evidenceParams)
