@@ -114,7 +114,7 @@ lazy val publishSettings : Seq[Setting[_]] = Seq(
 // VersionUtil.versionPropertiesImpl for details. The standard sbt `version` setting should not be set directly. It
 // is the same as the Maven version and derived automatically from `baseVersion` and `baseVersionSuffix`.
 globalVersionSettings
-baseVersion in Global := "2.11.8-tl-201604181208"
+baseVersion in Global := "2.11.8-pvo-201604231700"
 baseVersionSuffix in Global := ""
 
 lazy val commonSettings = clearSourceAndResourceDirectories ++ publishSettings ++ Seq[Setting[_]](
