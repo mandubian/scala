@@ -3130,6 +3130,17 @@ trait Types
        *  type parameter we're trying to infer (the result will be sanity-checked later).
        */
       def unifyFull(tpe: Type): Boolean = {
+        /*
+         * is this type higher-kinded?
+         */
+        def isHK(tp: Type): Boolean = tp.typeArgs.length > 0
+
+        /*
+         * a function (that might not be exact) to determine whether unifySpecificRec shall be tried
+         */
+        def reqHKRecUni(tp: Type, rightToLeft: Boolean): Boolean =
+          tp.typeArgs.find(isHK).isDefined
+          
         def unifySpecific(tp: Type) = {
           if(sameLength(typeArgs, tp.typeArgs)) {
             val lhs = if (isLowerBound) tp.typeArgs else typeArgs
@@ -3160,29 +3171,162 @@ trait Types
 
             val numAbstracted = typeArgs.length
             val numCaptured = tp.typeArgs.length-numAbstracted
-            val (captured, abstracted) =
-              if(rightToLeft) tp.typeArgs.splitAt(numAbstracted).swap
-             else tp.typeArgs.splitAt(numCaptured)
+            // checks whether it can be subject to recursive SI2712 HK unification
+            // M[t] = [t][Int => t] => classic SI2712 patch
+            // M[t] = [t][(Option[t], String, List[t])] => recursive SI2712 unification
+            if(!reqHKRecUni(tp, rightToLeft)) {
+              val (captured, abstracted) =
+                if(rightToLeft) tp.typeArgs.splitAt(numAbstracted).swap
+               else tp.typeArgs.splitAt(numCaptured)
 
-            val lhs = if (isLowerBound) abstracted else typeArgs
-            val rhs = if (isLowerBound) typeArgs else abstracted
-            // This is a higher-kinded type var with same arity as tp.
-            // If so (see SI-7517), side effect: adds the type constructor itself as a bound.
-            val withinBounds = isWithinBounds(prefix, origin.typeSymbol.owner, origin.typeSymbol :: Nil, tp.typeConstructor :: Nil)
-            withinBounds && isSubArgs(lhs, rhs, params, AnyDepth) && {
+              val lhs = if (isLowerBound) abstracted else typeArgs
+              val rhs = if (isLowerBound) typeArgs else abstracted
+              // This is a higher-kinded type var with same arity as tp.
+              // If so (see SI-7517), side effect: adds the type constructor itself as a bound.
+              val withinBounds = isWithinBounds(prefix, origin.typeSymbol.owner, origin.typeSymbol :: Nil, tp.typeConstructor :: Nil)
+              withinBounds && isSubArgs(lhs, rhs, params, AnyDepth) && {
+                val absSyms =
+                  if(rightToLeft) tpSym.typeParams.take(numAbstracted)
+                  else tpSym.typeParams.drop(numCaptured)
+                val freeSyms = absSyms.map(_.cloneSymbol(tpSym))
+                val args =
+                  if(rightToLeft) freeSyms.map(_.tpeHK) ++ captured
+                  else captured ++ freeSyms.map(_.tpeHK)
+                val poly = PolyType(freeSyms, appliedType(tp.typeConstructor, args))
+                addBound(poly)
+                true
+              }
+            } else {
+              // RECURSIVE SI2712 UNIFICATION
+              // println(s"#### START $tp ${tp.typeArgs}")
+
+              // creates freesyms first
               val absSyms =
                 if(rightToLeft) tpSym.typeParams.take(numAbstracted)
                 else tpSym.typeParams.drop(numCaptured)
               val freeSyms = absSyms.map(_.cloneSymbol(tpSym))
-              val args =
-                if(rightToLeft) freeSyms.map(_.tpeHK) ++ captured
-                else captured ++ freeSyms.map(_.tpeHK)
-              val poly = PolyType(freeSyms, appliedType(tp.typeConstructor, args))
-              addBound(poly)
-              true
+
+              // for each typearg, try to unify in depth using previous free symbols
+              val unifiedTypesBuider = List.newBuilder[Type]
+              // stops at first error, no need to do more work than needed
+              tp.typeArgs.takeWhile { tpp =>
+                val (isUnifiable, tpu) = unifySpecificRec(tpp, freeSyms)
+                if(isUnifiable) unifiedTypesBuider += tpu
+                isUnifiable
+              }
+              val unifiedTypes = unifiedTypesBuider.result()
+              // if all types are unifiable, build final unified poly type
+              if(unifiedTypes.length == tp.typeArgs.length) {
+                val poly = PolyType(freeSyms, appliedType(tp.typeConstructor, unifiedTypes))
+                // println(s"#### Unified tp:$tp to $poly")
+                addBound(poly)
+                true
+              } else {
+                // println(s"#### Unified failed $unifiedTypes")
+                false
+              }
             }
           } else
             false
+        }
+
+
+        /*
+         * This is the recursive SI2712 unification function (can only be called in settings.YhigherOrderUnification)
+         * It's very simple:
+         *   - same typeargs length => just apply freesymbols to tp
+         *   - no type args => no need to unify anything, just keep it
+         *   - higher-kinded => tries to unify by SI2712 or if needed, launch another deeper  SI2712 recursive unification
+         */
+        def unifySpecificRec(tp: Type, freeSyms: List[Symbol]): (Boolean, Type) = {
+          // println(s"START $tp $freeSyms")
+          // same typeargs length => just apply freesymbols to tp
+          if(sameLength(typeArgs, tp.typeArgs)) {
+            val lhs = if (isLowerBound) tp.typeArgs else typeArgs
+            val rhs = if (isLowerBound) typeArgs else tp.typeArgs
+            // This is a higher-kinded type var with same arity as tp.
+            // If so (see SI-7517), side effect: adds the type constructor itself as a bound.
+            val withinBounds = isWithinBounds(prefix, origin.typeSymbol.owner, origin.typeSymbol :: Nil, tp.typeConstructor :: Nil)
+            (withinBounds && isSubArgs(lhs, rhs, params, AnyDepth)) -> appliedType(tp.typeConstructor, freeSyms.map(_.tpeHK))
+          } 
+          // no tp's type args => no need to unify anything, just keep it as is
+          else if(tp.typeArgs.lengthCompare(0) == 0) {
+            val r = true -> tp
+            // println(s"END nothing $r")
+            r
+          }
+          // higher-kinded => tries to unify by SI2712 or if needed, launch another deeper  SI2712 recursive unification
+          else if(typeArgs.lengthCompare(0) > 0 && compareLengths(typeArgs, tp.typeArgs) < 0) {
+            // Simple algorithm as suggested by Paul Chiusano in the comments on SI-2712
+            //
+            //   https://issues.scala-lang.org/browse/SI-2712?focusedCommentId=61270
+            //
+            // Treat the type constructor as curried and partially applied, we treat a prefix
+            // as constants and solve for the suffix. For the example in the ticket, unifying
+            // M[A] with Int => Int this unifies as,
+            //
+            //   M[t] = [t][Int => t]
+            //   A = Int
+            //
+            // A more "natural" unifier might be M[t] = [t][t => t]. There's lots of scope for
+            // experimenting with alternatives here.
+            val tpSym = tp.typeSymbolDirect
+            val rightToLeft = tpSym.annotations.exists(_ matches definitions.unifyRightToLeftClass)
+
+            if(!reqHKRecUni(tp, rightToLeft)) {
+              // NORMAL CASE without recursion
+              val numAbstracted = typeArgs.length
+              val numCaptured = tp.typeArgs.length-numAbstracted
+              val (captured, abstracted) =
+                if(rightToLeft) tp.typeArgs.splitAt(numAbstracted).swap
+               else tp.typeArgs.splitAt(numCaptured)
+
+              val lhs = if (isLowerBound) abstracted else typeArgs
+              val rhs = if (isLowerBound) typeArgs else abstracted
+              // This is a higher-kinded type var with same arity as tp.
+              // If so (see SI-7517), side effect: adds the type constructor itself as a bound.
+              val withinBounds = isWithinBounds(prefix, origin.typeSymbol.owner, origin.typeSymbol :: Nil, tp.typeConstructor :: Nil)
+              (withinBounds && isSubArgs(lhs, rhs, params, AnyDepth)) -> {                
+                val args =
+                  if(rightToLeft) freeSyms.map(_.tpeHK) ++ captured
+                  else captured ++ freeSyms.map(_.tpeHK)
+                appliedType(tp.typeConstructor, args)
+              }
+              // println(s"END classic $r")
+
+            } else {
+              val unifiedTypesBuider = List.newBuilder[Type]
+              tp.typeArgs.takeWhile { tpp =>
+                // typearg is HK, so go in it              
+                if(isHK(tpp)) {
+                  val (isUnified, tpu) = unifySpecificRec(tpp, freeSyms)
+                  if(isUnified) unifiedTypesBuider += tpu
+                  isUnified
+                // not HK, so ok anyway
+                } else {
+                  unifiedTypesBuider += tpp
+                  true
+                }
+              }
+
+              val unifiedTypes = unifiedTypesBuider.result()
+
+              // all type args are unifiable, apply them to tp
+              if(unifiedTypes.length == tp.typeArgs.length) {
+                val r = (true, appliedType(tp.typeConstructor, unifiedTypes))
+                // println(s"END HK $r")
+                r
+              }
+              // some type args are NOT unifiable, return false
+              else {
+                val r = (false, tp)
+                // println(s"END not unifiable $r")
+                r
+              }
+            }
+            
+          } else
+            (false, tp)
         }
         // The type with which we can successfully unify can be hidden
         // behind singleton types and type aliases.
