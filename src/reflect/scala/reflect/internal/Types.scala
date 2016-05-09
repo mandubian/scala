@@ -3148,7 +3148,7 @@ trait Types
          *   - no type args => no need to unify anything, just keep it
          *   - higher-kinded => tries to unify by SI2712 or if needed, launch another deeper  SI2712 recursive unification
          * @param tp the type to unify with tpein unifyFull
-         * @param bounding true if need to addBounds
+         * @param isRoot is it root level of unification
          * @param freeSyms current freeSyms to use in appliedType args
          */
         def unifySpecific(tp: Type, isRoot: Boolean, freeSyms: List[Symbol]): (Boolean, Type) = {
@@ -3159,9 +3159,9 @@ trait Types
             // This is a higher-kinded type var with same arity as tp.
             // If so (see SI-7517), side effect: adds the type constructor itself as a bound.
             val withinBounds = isWithinBounds(prefix, origin.typeSymbol.owner, origin.typeSymbol :: Nil, tp.typeConstructor :: Nil)
-            val unified = withinBounds && isSubArgs(lhs, rhs, params, AnyDepth)
-            unified -> {
-              if(unified) {
+            val unifiable = withinBounds && isSubArgs(lhs, rhs, params, AnyDepth)
+            unifiable -> {
+              if(unifiable) {
                 // if at root level, adds bounds and returns input type (by choice)
                 if(isRoot) { addBound(tp.typeConstructor); tp }
                 // else return the applied type using freesym (we are in a recursion loop)
@@ -3216,44 +3216,44 @@ trait Types
               // This is a higher-kinded type var with same arity as tp.
               // If so (see SI-7517), side effect: adds the type constructor itself as a bound.
               val withinBounds = isWithinBounds(prefix, origin.typeSymbol.owner, origin.typeSymbol :: Nil, tp.typeConstructor :: Nil)
-              val isUnified = withinBounds && isSubArgs(lhs, rhs, params, AnyDepth)
+              val unifiable = withinBounds && isSubArgs(lhs, rhs, params, AnyDepth)
 
-              isUnified -> {                              
+              unifiable -> {                              
                 val args =
                   if(rightToLeft) freeSymsRec.map(_.tpeHK) ++ captured
                   else captured ++ freeSymsRec.map(_.tpeHK)
                 val appTpe = appliedType(tp.typeConstructor, args)
                 // at root level, here need to add bounds using freeSyms
-                if(isUnified && isRoot) addBound(PolyType(freeSymsRec, appTpe))
+                if(unifiable && isRoot) addBound(PolyType(freeSymsRec, appTpe))
                 appTpe
               }
 
             } else {
               // one type is HK so can't simply unify, need recursion     
-              val unifiedTypesBuider = List.newBuilder[Type]
+              val unifiableTypesBuider = List.newBuilder[Type]
               // if there are only simple-kinded types, can't unify so keep track of that with ugly var
               var onlySimpleTypes = true
               tp.typeArgs.takeWhile { tpp =>
                 // typearg is HK, so unify recursively
                 if(isHK(tpp)) {
                   onlySimpleTypes = false
-                  val (isUnified, tpu) = unifySpecific(tpp, false, freeSymsRec)
-                  if(isUnified) unifiedTypesBuider += tpu
-                  isUnified
+                  val (isunifiable, tpu) = unifySpecific(tpp, false, freeSymsRec)
+                  if(isunifiable) unifiableTypesBuider += tpu
+                  isunifiable
                 
                 }
                 // not HK, so ok anyway
                 else {
-                  unifiedTypesBuider += tpp
+                  unifiableTypesBuider += tpp
                   true
                 }
               }
 
-              val unifiedTypes = unifiedTypesBuider.result()
+              val unifiableTypes = unifiableTypesBuider.result()
 
               // all type args are unifiable (and not only simple-kinded types), apply them to tp
-              if(unifiedTypes.length == tp.typeArgs.length && !onlySimpleTypes) {
-                val appTpe = appliedType(tp.typeConstructor, unifiedTypes)
+              if(unifiableTypes.length == tp.typeArgs.length && !onlySimpleTypes) {
+                val appTpe = appliedType(tp.typeConstructor, unifiableTypes)
                 // at root level, need to add bounds using freeSyms
                 if(isRoot) addBound(PolyType(freeSymsRec, appTpe))
                 (true, appTpe)
