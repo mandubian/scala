@@ -28,9 +28,11 @@ object HK {
   val d: (Option[Int], List[Int], String, Bar[Boolean, String, Int]) = (Some(5), List(4), "toto", new Bar[Boolean, String, Int] {})
   foo2(d)
 
-  // def foo3[F[_], A](t: F[A])(implicit eq: F[A] =:= ({type λ[T] = T => T })#λ[A]): F[A] = t
   // // type P[T] = T => T
-  // def f[T]: T => T = ???
-  // val t0 = foo3(f)
-  // val t1 = foo3{(x: Int) => x}
+  // def typed[T](t: T): Unit = {}
+
+  // def meh[F[_], A](t: F[A]): F[Boolean] = ???
+  // val res = meh{(x: Int) => x}
+
+  // typed[Boolean => Boolean](res)
 }

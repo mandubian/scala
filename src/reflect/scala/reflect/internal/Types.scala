@@ -3191,7 +3191,7 @@ trait Types
             // A more "natural" unifier might be M[t] = [t][t => t]. There's lots of scope for
             // experimenting with alternatives here.
             val tpSym = tp.typeSymbolDirect
-            val rightToLeft = tpSym.annotations.exists(_ matches definitions.unifyRightToLeftClass)
+            val rightToLeft = tpSym.hasAnnotation(definitions.unifyRightToLeftClass)
 
             val numAbstracted = typeArgs.length
             val numCaptured = tp.typeArgs.length-numAbstracted

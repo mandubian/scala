@@ -110,7 +110,7 @@ lazy val publishSettings : Seq[Setting[_]] = Seq(
 // is the same as the Maven version and derived automatically from `baseVersion` and `baseVersionSuffix`.
 globalVersionSettings
 baseVersion in Global := "2.12.0"
-baseVersionSuffix in Global := "SNAPSHOT"
+baseVersionSuffix in Global := "pvo"
 
 lazy val commonSettings = clearSourceAndResourceDirectories ++ publishSettings ++ Seq[Setting[_]](
   organization := "org.scala-lang",
