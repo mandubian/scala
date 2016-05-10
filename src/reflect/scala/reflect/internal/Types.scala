@@ -3211,21 +3211,61 @@ trait Types
                 if(rightToLeft) tp.typeArgs.splitAt(numAbstracted).swap
                 else tp.typeArgs.splitAt(numCaptured)
 
-              val lhs = if (isLowerBound) abstracted else typeArgs
-              val rhs = if (isLowerBound) typeArgs else abstracted
-              // This is a higher-kinded type var with same arity as tp.
-              // If so (see SI-7517), side effect: adds the type constructor itself as a bound.
-              val withinBounds = isWithinBounds(prefix, origin.typeSymbol.owner, origin.typeSymbol :: Nil, tp.typeConstructor :: Nil)
-              val unifiable = withinBounds && isSubArgs(lhs, rhs, params, AnyDepth)
+              println(s"captured:$captured abstracted:$abstracted")
 
-              unifiable -> {                              
-                val args =
-                  if(rightToLeft) freeSymsRec.map(_.tpeHK) ++ captured
-                  else captured ++ freeSymsRec.map(_.tpeHK)
-                val appTpe = appliedType(tp.typeConstructor, args)
-                // at root level, here need to add bounds using freeSyms
-                if(unifiable && isRoot) addBound(PolyType(freeSymsRec, appTpe))
-                appTpe
+              // Search for abstracted types sub-sequences starting right or left
+              // returning the max number of sub-seq found and the remaining captured sequence
+              def searchAbstracted(captured: List[Type], cur: Int = 0): (List[Type], Int) = {
+                if(rightToLeft) {
+                  if(captured.startsWith(abstracted)) searchAbstracted(captured.drop(abstracted.length), cur + 1)
+                  else (captured, cur)
+                }
+                else {
+                  if(captured.endsWith(abstracted)) searchAbstracted(captured.dropRight(abstracted.length), cur + 1)
+                  else (captured, cur)
+                }
+              }
+              val (recaptured, nbRec) = searchAbstracted(captured)
+              // println(s"recaptured:$recaptured nbRec:$nbRec")
+              if(nbRec == 0) {
+                // println(s"Not Rec")
+                val lhs = if (isLowerBound) abstracted else typeArgs
+                val rhs = if (isLowerBound) typeArgs else abstracted
+                // This is a higher-kinded type var with same arity as tp.
+                // If so (see SI-7517), side effect: adds the type constructor itself as a bound.
+                val withinBounds = isWithinBounds(prefix, origin.typeSymbol.owner, origin.typeSymbol :: Nil, tp.typeConstructor :: Nil)
+                val unifiable = withinBounds && isSubArgs(lhs, rhs, params, AnyDepth)
+
+                unifiable -> {                              
+                  val args =
+                    if(rightToLeft) freeSymsRec.map(_.tpeHK) ++ captured
+                    else captured ++ freeSymsRec.map(_.tpeHK)
+                  val appTpe = appliedType(tp.typeConstructor, args)
+                  // at root level, here need to add bounds using freeSyms
+                  if(unifiable && isRoot) addBound(PolyType(freeSymsRec, appTpe))
+                  appTpe
+                }
+              } else {
+                // println(s"Rec")
+                val lhs = if (isLowerBound) abstracted else typeArgs
+                val rhs = if (isLowerBound) typeArgs else abstracted
+                // This is a higher-kinded type var with same arity as tp.
+                // If so (see SI-7517), side effect: adds the type constructor itself as a bound.
+                val withinBounds = isWithinBounds(prefix, origin.typeSymbol.owner, origin.typeSymbol :: Nil, tp.typeConstructor :: Nil)
+                val unifiable = withinBounds && isSubArgs(lhs, rhs, params, AnyDepth)
+
+                val fs = freeSymsRec.map(_.tpeHK)
+                val fss = List.fill(nbRec+1)(fs).flatten
+                // println(s"fss:$fss")
+                unifiable -> {                              
+                  val args =
+                    if(rightToLeft) fss ++ recaptured
+                    else recaptured ++ fss
+                  val appTpe = appliedType(tp.typeConstructor, args)
+                  // at root level, here need to add bounds using freeSyms
+                  if(unifiable && isRoot) addBound(PolyType(freeSymsRec, appTpe))
+                  appTpe
+                }
               }
 
             } else {

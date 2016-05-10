@@ -1,6 +1,7 @@
 package test
 
 object HK {
+
   sealed trait Coproduct
   @scala.annotation.unifyRightToLeft
   sealed trait :+:[+H, +T <: Coproduct] extends Coproduct
@@ -29,10 +30,23 @@ object HK {
   foo2(d)
 
   // // type P[T] = T => T
-  // def typed[T](t: T): Unit = {}
+  def typed[T](t: T): Unit = {}
 
-  // def meh[F[_], A](t: F[A]): F[Boolean] = ???
-  // val res = meh{(x: Int) => x}
+  // [t](t => t)
+  def meh[F[_], A](t: F[A]): F[Boolean] = ???
 
-  // typed[Boolean => Boolean](res)
+  val res = meh{(x: Int) => x}
+  typed[Boolean => Boolean](res)
+
+  val res1 = meh{(x: Option[Int]) => x}
+  typed[Option[Boolean] => Option[Boolean]](res1)
+
+  // [a, b]( (a, b, a) => b)
+  def meh2[F[_, _], A, B](t: F[A, B]): F[Boolean, Float] = ???
+
+  val res2 = meh2{(x: Int, y: String, z: Int) => y}
+  typed[Function3[Boolean, Float, Boolean, Float]](res2)
+
+  val res3 = meh2{(x: Bar[Int, String, Boolean]) => x }
+  typed[Function1[Bar[Int, Boolean, Float], Bar[Int, Boolean, Float]]](res3)
 }
