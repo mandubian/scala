@@ -5098,24 +5098,27 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
           if (sameLength(tparams, args)) {
             // @M: kind-arity checking is done here and in adapt, full kind-checking is in checkKindBounds (in Infer)
             val args1 = map2Conserve(args, tparams) { (arg, tparam) =>
-              def ptParams = Kind.FromParams(tparam.typeParams)
-
-              // if symbol hasn't been fully loaded, can't check kind-arity except when we're in a pattern,
-              // where we can (we can't take part in F-Bounds) and must (SI-8023)
-              val pt = if (mode.typingPatternOrTypePat) {
-                tparam.initialize; ptParams
-              }
-              else if (isComplete) ptParams
-              else Kind.Wildcard
-
               val iskp = try {
                 tparam.tpe.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
               } catch {
                 case ex: CyclicReference => false
                 case ex: TypeError => false
               }
-              if(iskp) typedHigherKindedType(arg, mode)
-              else typedHigherKindedType(arg, mode, pt)
+              if(iskp)
+                typedHigherKindedType(arg, mode)
+              else {
+                def ptParams = Kind.FromParams(tparam.typeParams)
+
+                // if symbol hasn't been fully loaded, can't check kind-arity except when we're in a pattern,
+                // where we can (we can't take part in F-Bounds) and must (SI-8023)
+                val pt = if (mode.typingPatternOrTypePat) {
+                  tparam.initialize; ptParams
+                }
+                else if (isComplete) ptParams
+                else Kind.Wildcard
+
+                typedHigherKindedType(arg, mode, pt)
+              }
             }
             val argtypes = mapList(args1)(treeTpe)
 

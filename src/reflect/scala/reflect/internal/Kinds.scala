@@ -161,8 +161,8 @@ trait Kinds {
         case ex: CyclicReference => false
         // case _: TypeError => false
       }
-      
-      if (!isKindPolymorphic && !sameLength(hkargs, hkparams)) {
+
+      if (!sameLength(hkargs, hkparams) && !isKindPolymorphic) {
         // Any and Nothing are kind-overloaded
         if (arg == AnyClass || arg == NothingClass) NoKindErrors
         // shortcut: always set error, whether explainTypesOrNot

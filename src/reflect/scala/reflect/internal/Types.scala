@@ -4389,8 +4389,8 @@ trait Types
   }
 
 
-  def isKindPolymorphic(bounds: TypeBounds): Boolean =
-    isKindPolymorphic(bounds)
+  def isKindPolymorphicBounds(bounds: TypeBounds): Boolean =
+    isKindPolymorphic(bounds.hi)
 
   def isKindPolymorphic(tp: Type) = try {
     tp.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
@@ -4407,7 +4407,7 @@ trait Types
       bounds = adaptBoundsToAnnotations(bounds, tparams, targs)
     (bounds corresponds targs) { (bounds: TypeBounds, tp: Type) => 
       // tries to match KindPolymorphic to let it pass
-      if(isKindPolymorphic(bounds)) {
+      if(isKindPolymorphicBounds(bounds)) {
         true
       } else {
         val r =  boundsContainType(bounds, tp)
