@@ -355,6 +355,7 @@ trait TypeComparers {
       case (_, TypeRef(_, NothingClass, _))                                 => false
       case (pt1: PolyType, pt2: PolyType)                                   => isPolySubType(pt1, pt2)  // @assume both .isHigherKinded (both normalized to PolyType)
       case (_: PolyType, MethodType(ps, _)) if ps exists (_.tpe.isWildcard) => false                    // don't warn on HasMethodMatching on right hand side
+      case (_, TypeRef(_, KindPolymorphicClass, _))                         => false                    
       case _                                                                =>                          // @assume !(both .isHigherKinded) thus cannot be subtypes
         def tp_s(tp: Type): String = f"$tp%-20s ${util.shortClassOfInstance(tp)}%s"
         devWarning(s"HK subtype check on $tp1 and $tp2, but both don't normalize to polytypes:\n  tp1=${tp_s(ntp1)}\n  tp2=${tp_s(ntp2)}")

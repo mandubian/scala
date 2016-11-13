@@ -610,7 +610,6 @@ trait Implicits {
 
     private def typedImplicit1(info: ImplicitInfo, isLocalToCallsite: Boolean): SearchResult = {
       if (Statistics.canEnable) Statistics.incCounter(matchingImplicits)
-
       // workaround for deficient context provided by ModelFactoryImplicitSupport#makeImplicitConstraints
       val isScaladoc = context.tree == EmptyTree
 
@@ -669,7 +668,6 @@ trait Implicits {
 
         val itree3 = if (isView) treeInfo.dissectApplied(itree2).callee
                      else adapt(itree2, EXPRmode, wildPt)
-
         typingStack.showAdapt(itree0, itree3, pt, context)
 
         def hasMatchingSymbol(tree: Tree): Boolean = (tree.symbol == info.sym) || {
@@ -697,7 +695,6 @@ trait Implicits {
               typingLog("solve", ptLine("tvars" -> tvars, "tvars.constr" -> tvars.map(_.constr)))
 
             val targs = solvedTypes(tvars, undetParams, undetParams map varianceInType(pt), upper = false, lubDepth(itree3.tpe :: pt :: Nil))
-
             // #2421: check that we correctly instantiated type parameters outside of the implicit tree:
             checkBounds(itree3, NoPrefix, NoSymbol, undetParams, targs, "inferred ")
             context.reporter.firstError match {
@@ -903,6 +900,7 @@ trait Implicits {
         // most frequent one first
         matches sortBy (x => if (isView) -x.useCountView else -x.useCountArg)
       }
+
       if (eligible.nonEmpty)
         printTyping(tree, eligible.size + s" eligible for pt=$pt at ${fullSiteString(context)}")
 

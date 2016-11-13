@@ -1520,8 +1520,15 @@ trait Types
       }
     }
     //Console.println("baseTypeSeq(" + typeSymbol + ") = " + baseTypeSeqCache.toList);//DEBUG
-    if (tpe.baseTypeSeqCache eq undetBaseTypeSeq)
-      throw new TypeError("illegal cyclic inheritance involving " + tpe.typeSymbol)
+    if (tpe.baseTypeSeqCache eq undetBaseTypeSeq) {
+      try {
+        throw new TypeError("illegal cyclic inheritance involving " + tpe.typeSymbol)
+      } catch {
+        case ex: Throwable =>
+          ex.printStackTrace
+          throw ex
+      }
+    }
   }
 
   object baseClassesCycleMonitor {
@@ -2430,8 +2437,15 @@ trait Types
         }
       }
     }
-    if (tpe.baseTypeSeqCache == undetBaseTypeSeq)
-      throw new TypeError("illegal cyclic inheritance involving " + tpe.sym)
+    if (tpe.baseTypeSeqCache == undetBaseTypeSeq) {
+      try {
+        throw new TypeError("illegal cyclic inheritance involving " + tpe.sym)
+      } catch {
+        case ex: Throwable =>
+          ex.printStackTrace
+          throw ex
+      }
+    }
   }
 
   /** A class representing a method type with parameters.
@@ -4374,13 +4388,32 @@ trait Types
       }
   }
 
+
+  def isKindPolymorphic(bounds: TypeBounds): Boolean =
+    isKindPolymorphic(bounds)
+
+  def isKindPolymorphic(tp: Type) = try {
+    tp.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
+  } catch {
+    case ex: CyclicReference => false
+    case _: TypeError => false
+  }
+
   /** Do type arguments `targs` conform to formal parameters `tparams`?
    */
   def isWithinBounds(pre: Type, owner: Symbol, tparams: List[Symbol], targs: List[Type]): Boolean = {
     var bounds = instantiatedBounds(pre, owner, tparams, targs)
     if (targs exists typeHasAnnotations)
       bounds = adaptBoundsToAnnotations(bounds, tparams, targs)
-    (bounds corresponds targs)(boundsContainType)
+    (bounds corresponds targs) { (bounds: TypeBounds, tp: Type) => 
+      // tries to match KindPolymorphic to let it pass
+      if(isKindPolymorphic(bounds)) {
+        true
+      } else {
+        val r =  boundsContainType(bounds, tp)
+        r
+      }
+    }
   }
 
   def instantiatedBounds(pre: Type, owner: Symbol, tparams: List[Symbol], targs: List[Type]): List[TypeBounds] =

@@ -151,11 +151,24 @@ trait Kinds {
         log("checkKindBoundsHK under params: "+ underHKParams +" with args "+ withHKArgs)
       }
 
-      if (!sameLength(hkargs, hkparams)) {
+      // println("checkKindBoundsHK expected: "+ param +" with params "+ hkparams +" by definition in "+ paramowner)
+      // println("checkKindBoundsHK supplied: "+ arg +" with params "+ hkargs +" from "+ owner)
+      // println("checkKindBoundsHK under params: "+ underHKParams +" with args "+ withHKArgs)
+
+      def isKindPolymorphic = try {
+        param.tpe.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
+      } catch {
+        case ex: CyclicReference => false
+        // case _: TypeError => false
+      }
+      
+      if (!isKindPolymorphic && !sameLength(hkargs, hkparams)) {
         // Any and Nothing are kind-overloaded
         if (arg == AnyClass || arg == NothingClass) NoKindErrors
         // shortcut: always set error, whether explainTypesOrNot
-        else return kindErrors.arityError(arg -> param)
+        else {
+          return kindErrors.arityError(arg -> param)
+        }
       }
       else foreach2(hkargs, hkparams) { (hkarg, hkparam) =>
         if (hkparam.typeParams.isEmpty && hkarg.typeParams.isEmpty) { // base-case: kind *

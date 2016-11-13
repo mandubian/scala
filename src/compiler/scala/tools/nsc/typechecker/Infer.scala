@@ -896,7 +896,7 @@ trait Infer extends Checkable {
         case errs => (targs contains WildcardType) || issueKindBoundErrors(errs)
       }
 
-      targs.exists(_.isErroneous) || tparams.exists(_.isErroneous) //|| check()
+      targs.exists(_.isErroneous) || tparams.exists(_.isErroneous) || check()
     }
 
     def checkKindBounds(tparams: List[Symbol], targs: List[Type], pre: Type, owner: Symbol): List[String] = {
