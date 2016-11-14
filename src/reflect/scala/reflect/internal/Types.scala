@@ -4406,8 +4406,7 @@ trait Types
       if(settings.YkindPolymorphism && isKindPolymorphicBounds(bounds)) {
         true
       } else {
-        val r =  boundsContainType(bounds, tp)
-        r
+        boundsContainType(bounds, tp)
       }
     }
   }
