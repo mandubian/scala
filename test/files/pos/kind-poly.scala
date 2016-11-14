@@ -1,4 +1,10 @@
 object Test {
+  // def foo[F <: KindPolymorphic]: F = null.asInstanceOf[F]
+
+  // val i = foo[Int]        // OK
+  // val l = foo[List[Int]]  // OK
+  // val l = foo[List]        // KO but error is `error:null` :D
+
   // Basic Kind polymorphism sample
   trait Foo[T <: KindPolymorphic] { type Out ; def id(t: Out): Out = t }
 
@@ -36,6 +42,7 @@ object Test {
   }
 
   object KPCons {
+    type Aux[M <: KindPolymorphic, T <: KPList, H0, HL0 <: HList] = KPCons[M, T] { type H = H0; type HL = HL0 }
     // Polymorphic 
     trait Apply[M <: KindPolymorphic, A <: HList] { type Out }
     object Apply {
@@ -56,11 +63,11 @@ object Test {
 
     // the list builder
     trait KPConsBuilder[M <: KindPolymorphic] {
-      def apply[H0, HL0 <: HList, T <: KPList](head0: H0, tail0: T)(implicit unap: Unapply.Aux[M, H0, HL0]): KPCons[M, T] = new KPCons[M, T] {
+      def apply[H0, HL0 <: HList, T <: KPList](head0: H0, tail0: T)(implicit unap: Unapply.Aux[M, H0, HL0]): KPCons.Aux[M, T, H0, HL0] = new KPCons[M, T] {
         type HL = HL0
         type H = H0
-        val head = head0
-        val tail = tail0
+        val head: H = head0
+        val tail: T = tail0
       }
     }
 
@@ -70,7 +77,7 @@ object Test {
   case class Bar[A](a: A)
 
   // Let's create some kind-polymorphic list
-  val kl : Bar ::: String ::: List ::: Map ::: KPNil = 
+  val kl = 
     KPCons[Bar](
       Bar(5)
     , KPCons[String](
@@ -84,5 +91,7 @@ object Test {
         )
       )
     )
+
+  val h: Bar[Int] = kl.head
 
 }
