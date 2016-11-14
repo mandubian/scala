@@ -94,5 +94,7 @@ object Test {
 
   val h: Bar[Int] = kl.head
   val h2: String = kl.tail.head
+  val h3: List[Int] = kl.tail.tail.head
+  val h4: Map[String, Long] = kl.tail.tail.tail.head
 
 }
