@@ -93,5 +93,6 @@ object Test {
     )
 
   val h: Bar[Int] = kl.head
+  val h2: String = kl.tail.head
 
 }
