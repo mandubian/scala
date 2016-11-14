@@ -4388,16 +4388,12 @@ trait Types
       }
   }
 
+  def isKindPolymorphic(tpe: Type): Boolean =
+    !tpe.typeSymbol.rawInfo.bounds.hi.typeSymbol.hasFlag(LOCKED) &&
+    !tpe.typeSymbol.hasFlag(LOCKED) &&
+    tpe.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
 
-  def isKindPolymorphicBounds(bounds: TypeBounds): Boolean =
-    isKindPolymorphic(bounds.hi)
-
-  def isKindPolymorphic(tp: Type) = try {
-    tp.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
-  } catch {
-    case ex: CyclicReference => false
-    case _: TypeError => false
-  }
+  def isKindPolymorphicBounds(bounds: TypeBounds): Boolean = isKindPolymorphic(bounds.hi)
 
   /** Do type arguments `targs` conform to formal parameters `tparams`?
    */
@@ -4407,7 +4403,7 @@ trait Types
       bounds = adaptBoundsToAnnotations(bounds, tparams, targs)
     (bounds corresponds targs) { (bounds: TypeBounds, tp: Type) => 
       // tries to match KindPolymorphic to let it pass
-      if(isKindPolymorphicBounds(bounds)) {
+      if(settings.YkindPolymorphism && isKindPolymorphicBounds(bounds)) {
         true
       } else {
         val r =  boundsContainType(bounds, tp)

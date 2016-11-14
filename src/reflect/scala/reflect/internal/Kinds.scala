@@ -155,12 +155,7 @@ trait Kinds {
       // println("checkKindBoundsHK supplied: "+ arg +" with params "+ hkargs +" from "+ owner)
       // println("checkKindBoundsHK under params: "+ underHKParams +" with args "+ withHKArgs)
 
-      def isKindPolymorphic = try {
-        param.tpe.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
-      } catch {
-        case ex: CyclicReference => false
-        // case _: TypeError => false
-      }
+      def isKindPolymorphic = !settings.YkindPolymorphism || param.tpe.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
 
       if (!sameLength(hkargs, hkparams) && !isKindPolymorphic) {
         // Any and Nothing are kind-overloaded

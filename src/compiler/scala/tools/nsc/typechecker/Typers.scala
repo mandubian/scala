@@ -108,6 +108,15 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
   private final val InterpolatorCodeRegex  = """\$\{\s*(.*?)\s*\}""".r
   private final val InterpolatorIdentRegex = """\$[$\w]+""".r // note that \w doesn't include $
 
+  def isKindPolymorphic(tree: Tree): Boolean = isKindPolymorphic(tree.symbol)
+
+  def isKindPolymorphic(sym: Symbol): Boolean = sym.rawInfo.isComplete && isKindPolymorphic(sym.tpe)
+
+  def isKindPolymorphic(tpe: Type): Boolean = 
+    !tpe.typeSymbol.rawInfo.bounds.hi.typeSymbol.hasFlag(LOCKED) &&
+    !tpe.typeSymbol.hasFlag(LOCKED) &&
+    tpe.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
+
   abstract class Typer(context0: Context) extends TyperDiagnostics with Adaptation with Tag with PatternTyper with TyperContextErrors {
     import context0.unit
     import typeDebug.ptTree
@@ -930,17 +939,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
       }
 
       def adaptType(): Tree = {
-        // call that after other tests or type normalization will break things
-        def isKindPolymorphic = try {
-          tree.tpe.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
-        } catch {
-          case ex: CyclicReference => false
-          case _: TypeError => false
-        }  
-        //tree.tpe.bounds.hi.typeSymbol isSubClass definitions.KindPolymorphicClass
-        // println(s"######### tree.tpe.typeSymbol.isInitialized:${tree.tpe.typeSymbol.isInitialized}")
-        //pt.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
-
         // @M When not typing a type constructor (!context.inTypeConstructorAllowed)
         // or raw type, types must be of kind *,
         // and thus parameterized types must be applied to their type arguments
@@ -959,12 +957,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
           && !sameLength(tree.tpe.typeParams, pt.typeParams)
         )
 
-        // def isNotTypeParameterOfFunction = (
-        //      tree.hasSymbolField
-        //   && tree.symbol.isParameter
-        //   && tree.symbol.isTypeParameter
-        // )
-
         // Note that we treat Any and Nothing as kind-polymorphic.
         // We can't perform this check when typing type arguments to an overloaded method before the overload is resolved
         // (or in the case of an error type) -- this is indicated by pt == WildcardType (see case TypeApply in typed1).
@@ -980,10 +972,10 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         // but this needs additional investigation, because it crashes t5228, gadts1 and maybe something else
         if (mode.inFunMode)
           tree
-        else if (properTypeRequired && tree.symbol.typeParams.nonEmpty && !isKindPolymorphic)  { // (7) 
+        else if (properTypeRequired && tree.symbol.typeParams.nonEmpty && (!settings.YkindPolymorphism || isKindPolymorphic(tree)))  { // (7) 
           // println(s""">>>>> properTypeRequired: $properTypeRequired <<<<<
-          //   isKindPolymorphic:$isKindPolymorphic
-          //   pt.typeParams: ${pt.typeParams}
+          //   isKindPolymorphic:${isKindPolymorphic(tree.tpe)}
+          //   isComplete:${tree.symbol.rawInfo.isComplete}
           //   tree.tpe.symbol:${tree.tpe.typeSymbol}
           //   context.owner:${context.owner}
           //   hasSymbolField: ${tree.hasSymbolField}
@@ -991,7 +983,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
           // """)          
           MissingTypeParametersError(tree)
         }
-        else if (kindArityMismatch && !kindArityMismatchOk && !isKindPolymorphic) {  // (7.1) @M: check kind-arity          
+        else if (kindArityMismatch && !kindArityMismatchOk && (!settings.YkindPolymorphism || isKindPolymorphic(tree))) {  // (7.1) @M: check kind-arity          
           // println(s""">>>>> kindArityMismatch: $kindArityMismatch <<<<<
           //   isKindPolymorphic:$isKindPolymorphic
           //   tree: ${showRaw(tree)}
@@ -5075,13 +5067,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         }
       }
 
-      def isKindPolymorphic(tp: Type) = try {
-        tp.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
-      } catch {
-        case ex: CyclicReference => false
-        case _: TypeError => false
-      }
-
       def typedAppliedTypeTree(tree: AppliedTypeTree) = {
         val tpt        = tree.tpt
         val args       = tree.args
@@ -5098,30 +5083,23 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
           if (sameLength(tparams, args)) {
             // @M: kind-arity checking is done here and in adapt, full kind-checking is in checkKindBounds (in Infer)
             val args1 = map2Conserve(args, tparams) { (arg, tparam) =>
-              val iskp = try {
-                tparam.tpe.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
-              } catch {
-                case ex: CyclicReference => false
-                case ex: TypeError => false
-              }
-              if(iskp)
+              if(settings.YkindPolymorphism && isKindPolymorphic(tparam))
                 typedHigherKindedType(arg, mode)
               else {
-                def ptParams = Kind.FromParams(tparam.typeParams)
+                  def ptParams = Kind.FromParams(tparam.typeParams)
 
-                // if symbol hasn't been fully loaded, can't check kind-arity except when we're in a pattern,
-                // where we can (we can't take part in F-Bounds) and must (SI-8023)
-                val pt = if (mode.typingPatternOrTypePat) {
-                  tparam.initialize; ptParams
-                }
-                else if (isComplete) ptParams
-                else Kind.Wildcard
+                  // if symbol hasn't been fully loaded, can't check kind-arity except when we're in a pattern,
+                  // where we can (we can't take part in F-Bounds) and must (SI-8023)
+                  val pt = if (mode.typingPatternOrTypePat) {
+                    tparam.initialize; ptParams
+                  }
+                  else if (isComplete) ptParams
+                  else Kind.Wildcard
 
-                typedHigherKindedType(arg, mode, pt)
+                  typedHigherKindedType(arg, mode, pt)
               }
             }
             val argtypes = mapList(args1)(treeTpe)
-
             foreach2(args, tparams) { (arg, tparam) =>
               // note: can't use args1 in selector, because Binds got replaced
               val asym = arg.symbol
@@ -5148,7 +5126,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
             }
             val original = treeCopy.AppliedTypeTree(tree, tpt1, args1)
             val result = TypeTree(appliedType(tpt1.tpe, argtypes)) setOriginal original
-            if (isPoly) // did the type application (performed by appliedType) involve an unchecked beta-reduction?
+            if (isPoly) {// did the type application (performed by appliedType) involve an unchecked beta-reduction?
               TypeTreeWithDeferredRefCheck(){ () =>
                 // wrap the tree and include the bounds check -- refchecks will perform this check (that the beta reduction was indeed allowed) and unwrap
                 // we can't simply use original in refchecks because it does not contains types
@@ -5156,6 +5134,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
                 checkBounds(result, tpt1.tpe.prefix, tpt1.symbol.owner, tpt1.symbol.typeParams, argtypes, "")
                 result // you only get to see the wrapped tree after running this check :-p
               } setType (result.tpe) setPos(result.pos)
+            }
             else result
           } else if (tparams.isEmpty) {
             AppliedTypeNoParametersError(tree, tpt1.tpe)
@@ -5299,16 +5278,9 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
 
         // @M maybe the well-kindedness check should be done when checking the type arguments conform to the type parameters' bounds?
         val args1 = if (sameLength(args, tparams)) map2Conserve(args, tparams) {
-          (arg, tparam) =>
-            val ishk = try {
-              tparam.tpe.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
-            } catch {
-              case ex: CyclicReference => false
-              case ex: TypeError => false
-            }
-            if(ishk) {
+          (arg, tparam) =>            
+            if(settings.YkindPolymorphism && isKindPolymorphic(tparam))
               typedHigherKindedType(arg, mode)
-            }
             else typedHigherKindedType(arg, mode, Kind.FromParams(tparam.typeParams))
         }
         else {
