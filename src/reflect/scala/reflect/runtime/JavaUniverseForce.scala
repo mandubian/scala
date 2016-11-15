@@ -264,6 +264,7 @@ trait JavaUniverseForce { self: runtime.JavaUniverse  =>
     definitions.ByNameParamClass
     definitions.JavaRepeatedParamClass
     definitions.RepeatedParamClass
+    definitions.KindPolymorphicClass
     definitions.ConsClass
     definitions.IteratorClass
     definitions.IterableClass

@@ -1,9 +1,4 @@
 object Test {
-  // def foo[F <: KindPolymorphic]: F = null.asInstanceOf[F]
-
-  // val i = foo[Int]        // OK
-  // val l = foo[List[Int]]  // OK
-  // val l = foo[List]        // KO but error is `error:null` :D
 
   // Basic Kind polymorphism sample
   trait Foo[T <: KindPolymorphic] { type Out ; def id(t: Out): Out = t }
@@ -97,4 +92,23 @@ object Test {
   val h3: List[Int] = kl.tail.tail.head
   val h4: Map[String, Long] = kl.tail.tail.tail.head
 
+
+  // SPECIAL CASES
+  def foo0[F <: KindPolymorphic]: F = null.asInstanceOf[F]
+
+  val i = foo0[Int]        // OK
+  val li = foo0[List[Int]]  // OK
+  // foo0[List]                // KO -> neg
+  // val l = foo0[List]        // KO -> neg
+
+  // def foo1[F <: KindPolymorphic, A <: KindPolymorphic]: F[A] = ??? // SHOULD final
+
+  // trait Kinded[M] { type Out <: KindPolymorphic }
+  //   object Kinded {
+  //     type Aux[M <: KindPolymorphic, O, Out0 <: HList] = Unapply[M, O] { type Out = Out0 }
+
+  //     implicit def kind[M]: Aux[M, M, HNil] = new Unapply[M, M] { type Out = HNil }
+  //     implicit def unapply1[M[_], A0]: Unapply.Aux[M, M[A0], A0 :: HNil] = new Unapply[M, M[A0]] { type Out = A0 :: HNil }
+  //     // implicit def unapply2[M[_, _], A0, B0]: Aux[M, M[A0, B0], A0 :: B0 :: HNil] = new Unapply[M, M[A0, B0]] { type Out = A0 :: B0 :: HNil }
+  //   }
 }
