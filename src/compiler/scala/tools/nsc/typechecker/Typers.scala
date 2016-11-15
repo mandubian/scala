@@ -983,27 +983,13 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         else if (properTypeRequired && tree.symbol.typeParams.nonEmpty /*&&
           (!settings.YkindPolymorphism || (tree.symbol.rawInfo.isComplete && isKindPolymorphic(tree.tpe)))*/
         )  { // (7) 
-          // println(s""">>>>> properTypeRequired: $properTypeRequired <<<<<
-          //   isKindPolymorphic:${isKindPolymorphic(tree.tpe)}
-          //   isComplete:${tree.symbol.rawInfo.isComplete}
-          //   tree.tpe.symbol:${tree.tpe.typeSymbol}
-          //   context.owner:${context.owner}
-          //   hasSymbolField: ${tree.hasSymbolField}
-          //   inTypeConstructorAllowed: ${context.inTypeConstructorAllowed}
-          // """)     
+          // println(s""">>>>> MissingTypeParametersError <<<<<""")     
           MissingTypeParametersError(tree)
         }
         else if (kindArityMismatch && !kindArityMismatchOk /*&&
           (!settings.YkindPolymorphism || (tree.symbol.rawInfo.isComplete && isKindPolymorphic(tree.tpe)))*/
-        ) {  // (7.1) @M: check kind-arity          
-          // println(s""">>>>> kindArityMismatch: $kindArityMismatch <<<<<
-          //   isKindPolymorphic:$isKindPolymorphic
-          //   tree: ${showRaw(tree)}
-          //   tree.tpe.symbol:${tree.tpe.typeSymbol}
-          //   context.owner:${context.owner}
-          //   hasSymbolField: ${tree.hasSymbolField}
-          //   inTypeConstructorAllowed: ${context.inTypeConstructorAllowed}
-          // """)     
+        ) {  // (7.1) @M: check kind-arity                       
+          // println(s""">>>>> KindArityMismatchError <<<<<""")     
           KindArityMismatchError(tree, pt)
         } else tree match { // (6)
           case TypeTree() => tree
@@ -5293,7 +5279,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         // @M maybe the well-kindedness check should be done when checking the type arguments conform to the type parameters' bounds?
         val args1 = if (sameLength(args, tparams)) map2Conserve(args, tparams) {
           (arg, tparam) =>            
-            if(settings.YkindPolymorphism && tparam.rawInfo.isComplete && isKindPolymorphic(tparam.tpe) && mode.inPolyMode) {
+            if(settings.YkindPolymorphism && tparam.rawInfo.isComplete && isKindPolymorphic(tparam.tpe) /*&& mode.inPolyMode*/) {
               typedHigherKindedType(arg, mode)
             }
             else typedHigherKindedType(arg, mode, Kind.FromParams(tparam.typeParams))

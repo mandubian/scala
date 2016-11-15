@@ -1,4 +1,8 @@
 object Test {
+/*
+  case class Bar[A](a: A)
+  trait Toto[A, B]
+
 
   // Basic Kind polymorphism sample
   trait Foo[T <: KindPolymorphic] { type Out ; def id(t: Out): Out = t }
@@ -14,84 +18,85 @@ object Test {
   foo[List].id(List[Any](1, 2, 3))
   foo[Map].id(Map[Any, Any](1 -> "toto", 2 -> "tata", 3 -> "tutu"))
 
-  // Now let's create a kind-polymorphic List
-  
   // Classic Heterogenous List to unapply kind polymorphic params
   sealed trait HList
   final case class ::[+H, +T <: HList](head : H, tail : T) extends HList
   sealed trait HNil extends HList
   final case object HNil extends HNil
 
-  // The Kind Polymorphic List
-  sealed trait KPList
+  // Now let's create a kind-polymorphic List
+  object Old {
 
-  sealed trait KPNil extends KPList
-  case object KPNil extends KPNil
-  
-  sealed trait :::[H <: KindPolymorphic, T <: KPList] extends KPList
-  trait KPCons[M <: KindPolymorphic, T <: KPList] extends :::[M, T]  {
-    type HL <: HList
-    type H
-    def head: H
-    def tail: T
-  }
+    // The Kind Polymorphic List
+    sealed trait KPList
 
-  object KPCons {
-    type Aux[M <: KindPolymorphic, T <: KPList, H0, HL0 <: HList] = KPCons[M, T] { type H = H0; type HL = HL0 }
-    // Polymorphic 
-    trait Apply[M <: KindPolymorphic, A <: HList] { type Out }
-    object Apply {
-      type Aux[M <: KindPolymorphic, A <: HList, Out0] = Apply[M, A] { type Out = Out0 }
-      implicit def apply0[M]: Aux[M, HNil, M] = new Apply[M, HNil] { type Out = M }
-      implicit def apply1[M[_], A]: Aux[M, A :: HNil, M[A]] = new Apply[M, A :: HNil] { type Out = M[A] }
-      implicit def apply2[M[_, _], A, B]: Aux[M, A :: B :: HNil, M[A, B]] = new Apply[M, A :: B :: HNil] { type Out = M[A, B] }
+    sealed trait KPNil extends KPList
+    case object KPNil extends KPNil
+    
+    sealed trait :::[H <: KindPolymorphic, T <: KPList] extends KPList
+    trait KPCons[M <: KindPolymorphic, T <: KPList] extends :::[M, T]  {
+      type HL <: HList
+      type H
+      def head: H
+      def tail: T
     }
 
-    trait Unapply[M <: KindPolymorphic, O] { type Out <: HList }
-    object Unapply {
-      type Aux[M <: KindPolymorphic, O, Out0 <: HList] = Unapply[M, O] { type Out = Out0 }
-
-      implicit def unapply0[M]: Aux[M, M, HNil] = new Unapply[M, M] { type Out = HNil }
-      implicit def unapply1[M[_], A0]: Unapply.Aux[M, M[A0], A0 :: HNil] = new Unapply[M, M[A0]] { type Out = A0 :: HNil }
-      implicit def unapply2[M[_, _], A0, B0]: Aux[M, M[A0, B0], A0 :: B0 :: HNil] = new Unapply[M, M[A0, B0]] { type Out = A0 :: B0 :: HNil }
-    }
-
-    // the list builder
-    trait KPConsBuilder[M <: KindPolymorphic] {
-      def apply[H0, HL0 <: HList, T <: KPList](head0: H0, tail0: T)(implicit unap: Unapply.Aux[M, H0, HL0]): KPCons.Aux[M, T, H0, HL0] = new KPCons[M, T] {
-        type HL = HL0
-        type H = H0
-        val head: H = head0
-        val tail: T = tail0
+    object KPCons {
+      type Aux[M <: KindPolymorphic, T <: KPList, H0, HL0 <: HList] = KPCons[M, T] { type H = H0; type HL = HL0 }
+      // Polymorphic 
+      trait Apply[M <: KindPolymorphic, A <: HList] { type Out }
+      object Apply {
+        type Aux[M <: KindPolymorphic, A <: HList, Out0] = Apply[M, A] { type Out = Out0 }
+        implicit def apply0[M]: Aux[M, HNil, M] = new Apply[M, HNil] { type Out = M }
+        implicit def apply1[M[_], A]: Aux[M, A :: HNil, M[A]] = new Apply[M, A :: HNil] { type Out = M[A] }
+        implicit def apply2[M[_, _], A, B]: Aux[M, A :: B :: HNil, M[A, B]] = new Apply[M, A :: B :: HNil] { type Out = M[A, B] }
       }
+
+      trait Unapply[M <: KindPolymorphic, O] { type Out <: HList }
+      object Unapply {
+        type Aux[M <: KindPolymorphic, O, Out0 <: HList] = Unapply[M, O] { type Out = Out0 }
+
+        implicit def unapply0[M]: Aux[M, M, HNil] = new Unapply[M, M] { type Out = HNil }
+        implicit def unapply1[M[_], A0]: Unapply.Aux[M, M[A0], A0 :: HNil] = new Unapply[M, M[A0]] { type Out = A0 :: HNil }
+        implicit def unapply2[M[_, _], A0, B0]: Aux[M, M[A0, B0], A0 :: B0 :: HNil] = new Unapply[M, M[A0, B0]] { type Out = A0 :: B0 :: HNil }
+      }
+
+      // the list builder
+      trait KPConsBuilder[M <: KindPolymorphic] {
+        def apply[H0, HL0 <: HList, T <: KPList](head0: H0, tail0: T)(implicit unap: Unapply.Aux[M, H0, HL0]): KPCons.Aux[M, T, H0, HL0] = new KPCons[M, T] {
+          type HL = HL0
+          type H = H0
+          val head: H = head0
+          val tail: T = tail0
+        }
+      }
+
+      def apply[M <: KindPolymorphic] = new KPConsBuilder[M] {}
     }
 
-    def apply[M <: KindPolymorphic] = new KPConsBuilder[M] {}
-  }
 
-  case class Bar[A](a: A)
-
-  // Let's create some kind-polymorphic list
-  val kl = 
-    KPCons[Bar](
-      Bar(5)
-    , KPCons[String](
-        "toto"
-      , KPCons[List](
-          List(1, 2, 3)
-        , KPCons[Map](
-            Map("toto" -> 1L, "tata" -> 2L)
-          , KPNil
+    // Let's create some kind-polymorphic list
+    val kl = 
+      KPCons[Bar](
+        Bar(5)
+      , KPCons[String](
+          "toto"
+        , KPCons[List](
+            List(1, 2, 3)
+          , KPCons[Map](
+              Map("toto" -> 1L, "tata" -> 2L)
+            , KPNil
+            )
           )
         )
       )
-    )
 
-  val h: Bar[Int] = kl.head
-  val h2: String = kl.tail.head
-  val h3: List[Int] = kl.tail.tail.head
-  val h4: Map[String, Long] = kl.tail.tail.tail.head
+    val h: Bar[Int] = kl.head
+    val h2: String = kl.tail.head
+    val h3: List[Int] = kl.tail.tail.head
+    val h4: Map[String, Long] = kl.tail.tail.tail.head
 
+  }
 
   // SPECIAL CASES
   def foo0[F <: KindPolymorphic]: F = null.asInstanceOf[F]
@@ -102,13 +107,85 @@ object Test {
   // val l = foo0[List]        // KO -> neg
 
   // def foo1[F <: KindPolymorphic, A <: KindPolymorphic]: F[A] = ??? // SHOULD final
+*/
+  trait Kinded[M <: KindPolymorphic] { type Out <: KindPolymorphic }
+  object Kinded {
+    type Aux[M <: KindPolymorphic, Out0 <: KindPolymorphic] = Kinded[M] { type Out = Out0 }
 
-  // trait Kinded[M] { type Out <: KindPolymorphic }
-  //   object Kinded {
-  //     type Aux[M <: KindPolymorphic, O, Out0 <: HList] = Unapply[M, O] { type Out = Out0 }
+    implicit def kinded0[M <: KindPolymorphic]: Aux[M, M] = new Kinded[M] { type Out = M }
+    implicit def kinded1[M[_] <: KindPolymorphic]: Aux[M, M] = new Kinded[M] { type Out[t] = M[t] }
+    implicit def kinded2[M[_, _] <: KindPolymorphic]: Aux[M, M] = new Kinded[M] { type Out[t, u] = M[t, u] }
+  }
+/*
+  implicitly[Kinded.Aux[Int, Int]]
+  implicitly[Kinded.Aux[List, List]]
+  implicitly[Kinded.Aux[Map, Map]]
 
-  //     implicit def kind[M]: Aux[M, M, HNil] = new Unapply[M, M] { type Out = HNil }
-  //     implicit def unapply1[M[_], A0]: Unapply.Aux[M, M[A0], A0 :: HNil] = new Unapply[M, M[A0]] { type Out = A0 :: HNil }
-  //     // implicit def unapply2[M[_, _], A0, B0]: Aux[M, M[A0, B0], A0 :: B0 :: HNil] = new Unapply[M, M[A0, B0]] { type Out = A0 :: B0 :: HNil }
-  //   }
+
+  trait Kinder[MA] { type M <: KindPolymorphic; type Args <: HList }
+  object Kinder extends KinderLowerImplicits {
+    type Aux[MA, M0 <: KindPolymorphic, Args0 <: HList] = Kinder[MA] { type M = M0; type Args = Args0 }
+
+    implicit def kinder2[M0[_, _] <: KindPolymorphic, A0, B0]: Kinder.Aux[M0[A0, B0], M0, A0 :: B0 :: HNil] = new Kinder[M0[A0, B0]] { type M[t, u] = M0[t, u]; type Args = A0 :: B0 :: HNil }
+    implicit def kinder1[M0[_] <: KindPolymorphic, A0]: Kinder.Aux[M0[A0], M0, A0 :: HNil] = new Kinder[M0[A0]] { type M[t] = M0[t]; type Args = A0 :: HNil }
+  }
+
+  trait KinderLowerImplicits {
+    implicit def kinder0[A <: KindPolymorphic]: Kinder.Aux[A, A, HNil] = new Kinder[A] { type M = A; type Args = HNil }    
+  }
+
+  object New {
+    // The Kind Polymorphic List
+    sealed trait KPList
+
+    sealed trait KPNil extends KPList
+    case object KPNil extends KPNil {
+      def :::[H, M <: KindPolymorphic, HL <: HList](h:H)(implicit kinder: Kinder.Aux[H, M, HL]) =
+        New.:::(h, KPNil)
+    }
+    
+    sealed case class :::[H, T <: KPList, M <: KindPolymorphic, HL0 <: HList](
+      head: H
+    , tail: T
+    )(implicit val kinder: Kinder.Aux[H, M, HL0]) extends KPList
+
+    final case class KPListOps[L <: KPList](l : L) {
+      def :::[H, M <: KindPolymorphic, HL <: HList](h:H)(implicit kinder: Kinder.Aux[H, M, HL]) =
+        New.:::(h, l)
+    }
+
+    implicit def kplistOps[L <: KPList](l: L): KPListOps[L] = new KPListOps(l)
+
+    val kl = Bar(5) ::: "toto" ::: List(1, 2, 3) ::: Map("toto" -> 1L, "tata" -> 2L) ::: KPNil
+
+    val h: Bar[Int] = kl.head
+    val h2: String = kl.tail.head
+    val h3: List[Int] = kl.tail.tail.head
+    val h4: Map[String, Long] = kl.tail.tail.tail.head
+
+  }
+
+
+  // Same Kind test
+
+  trait SameKind[M <: KindPolymorphic, M2 <: KindPolymorphic]
+  object SameKind {
+
+    implicit def sameKind0[A, B] = new SameKind[A, B] {}
+    implicit def sameKind01[M1[_], M2[_]] = new SameKind[M1, M2] {}
+    implicit def sameKind02[M1[_, _], M2[_, _]] = new SameKind[M1, M2] {}
+  }
+
+  def sameKind[M1 <: KindPolymorphic, M2 <: KindPolymorphic](implicit sameKind: SameKind[M1, M2]) = sameKind
+
+  sameKind[Int, String]     // OK
+  sameKind[List, Bar]       // OK
+  sameKind[List, Bar]       // OK
+  sameKind[Map, Toto]       // OK
+
+  // sameKind[List, String] // KO
+  // sameKind[Map, List]    // KO
+  // sameKind[Map, Boolean] // KO
+*/
+
 }
