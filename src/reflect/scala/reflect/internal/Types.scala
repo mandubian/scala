@@ -4403,7 +4403,6 @@ trait Types
       bounds = adaptBoundsToAnnotations(bounds, tparams, targs)
     (bounds corresponds targs) { (bounds: TypeBounds, tp: Type) => 
       // tries to match AnyKind to let it pass
-      println(s"isWithinBounds pre:$pre owner:$owner tparams:$tparams targs:$targs")
       if(settings.YkindPolymorphism && isAnyKindBounds(bounds)) {
         true
       } else {

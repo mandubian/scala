@@ -2299,7 +2299,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
       checkNonCyclic(ddef, tpt1)
       ddef.tpt.setType(tpt1.tpe)
 
-      println(s"typedDefDef ${ddef.tpt} tpe:${ddef.tpt.tpe.typeSymbol} kp:${definitions.AnyKindClass} eq:${ddef.tpt.tpe eq definitions.AnyKindClass.tpe}")
       if(settings.YkindPolymorphism && (ddef.tpt.tpe eq definitions.AnyKindClass.tpe)) {
         AnyKindTypeError(ddef.tpt)
       }
