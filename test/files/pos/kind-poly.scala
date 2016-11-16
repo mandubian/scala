@@ -90,6 +90,7 @@ object Test {
   // Kind-Polymorphic List style
 
   // Classic Heterogenous List used in KindPolymorphic List
+  sealed trait HList
   final case class ::[+H, +T <: HList](head : H, tail : T) extends HList
   sealed trait HNil extends HList
   final case object HNil extends HNil
