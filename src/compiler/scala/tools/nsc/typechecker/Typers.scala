@@ -971,6 +971,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         //   pt:${pt == WildcardType}
         //   pt:${pt.typeParams}
         //   tree.tpe.typeParams:${tree.tpe.typeParams}
+        //   mode:$mode
         // """)     
 
         // todo. It would make sense when mode.inFunMode to instead use
@@ -1164,20 +1165,24 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
             case _                                               => applyPossible
           }
         }
+
         if (tree.isType)
           adaptType()
         else if (mode.typingExprNotFun && treeInfo.isMacroApplication(tree) && !isMacroExpansionSuppressed(tree))
           macroExpand(this, tree, mode, pt)
-        else if (mode.typingConstructorPattern)
+        else if (mode.typingConstructorPattern){
           typedConstructorPattern(tree, pt)
-        else if (shouldInsertApply(tree))
+        }
+        else if (shouldInsertApply(tree)) {
           insertApply()
+        }
         else if (hasUndetsInMonoMode) { // (9)
           assert(!context.inTypeConstructorAllowed, context) //@M
           instantiatePossiblyExpectingUnit(tree, mode, pt)
         }
-        else if (tree.tpe <:< pt)
+        else if (tree.tpe <:< pt) {
           tree
+        }
         else if (mode.inPatternMode && { inferModulePattern(tree, pt); isPopulated(tree.tpe, approximateAbstracts(pt)) })
           tree
         else {
@@ -1302,6 +1307,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
 
             typedQualifier(atPos(qual.pos)(new ApplyImplicitView(coercion, List(qual))))
         }
+
       }
       else qual
     }
@@ -2048,6 +2054,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
           else context
         newTyper(maybeConstrCtx.makeNewScope(vdef, sym))
       }
+
       valDefTyper.typedValDefImpl(vdef)
     }
 
@@ -2055,7 +2062,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
     private def typedValDefImpl(vdef: ValDef) = {
       val sym = vdef.symbol.initialize
       val typedMods = typedModifiers(vdef.mods)
-
       sym.annotations.map(_.completeInfo())
       val tpt1 = checkNoEscaping.privates(sym, typedType(vdef.tpt))
       checkNonCyclic(vdef, tpt1)
@@ -2281,6 +2287,11 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
       val tparams1 = ddef.tparams mapConserve typedTypeDef
       val vparamss1 = ddef.vparamss mapConserve (_ mapConserve typedValDef)
 
+      // if(settings.YkindPolymorphism && (ddef.tpt.tpe.typeSymbol eq definitions.KindPolymorphicClass)) {
+      //   println("typedDefDef ERROR")
+      //   MissingTypeParametersError(ddef.tpt)
+      // }
+
       warnTypeParameterShadow(tparams1, meth)
 
       meth.annotations.map(_.completeInfo())
@@ -2292,6 +2303,11 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
       val tpt1 = checkNoEscaping.privates(meth, typedType(ddef.tpt))
       checkNonCyclic(ddef, tpt1)
       ddef.tpt.setType(tpt1.tpe)
+
+      println(s"typedDefDef ${ddef.tpt} tpe:${ddef.tpt.tpe.typeSymbol} kp:${definitions.KindPolymorphicClass} eq:${ddef.tpt.tpe eq definitions.KindPolymorphicClass.tpe}")
+      if(settings.YkindPolymorphism && (ddef.tpt.tpe eq definitions.KindPolymorphicClass.tpe)) {
+        KindPolymorphicTypeError(ddef.tpt)
+      }
       val typedMods = typedModifiers(ddef.mods)
       var rhs1 =
         if (ddef.name == nme.CONSTRUCTOR && !ddef.symbol.hasStaticFlag) { // need this to make it possible to generate static ctors
@@ -4059,6 +4075,9 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
             }
             val resultpe = restpe.instantiateTypeParams(tparams, targs)
 
+            if(settings.YkindPolymorphism && (resultpe.resultType.typeParams.nonEmpty || (resultpe.resultType eq definitions.KindPolymorphicClass))) {
+              InferredReturnTypeError(fun, resultpe)
+            } else
             //@M substitution in instantiateParams needs to be careful!
             //@M example: class Foo[a] { def foo[m[x]]: m[a] = error("") } (new Foo[Int]).foo[List] : List[Int]
             //@M    --> first, m[a] gets changed to m[Int], then m gets substituted for List,
@@ -4122,7 +4141,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
           case _ =>
             gen.mkTuple(List(CODE.LIT(""), arg))
         }
-
         val t = treeCopy.Apply(orig, unmarkDynamicRewrite(fun), args map argToBinding)
         wrapErrors(t, _.typed(t, mode, pt))
       }
@@ -5521,6 +5539,8 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         else
           typedInternal(tree, mode, pt)
       )
+
+
       val startByType = if (Statistics.canEnable) Statistics.pushTimer(byTypeStack, byTypeNanos(tree.getClass)) else null
       if (Statistics.canEnable) Statistics.incCounter(visitsByType, tree.getClass)
       try body
@@ -5545,6 +5565,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
           ptPlugins // SI-5022 don't widen pt for patterns as types flow from it to the case body.
         else
           dropExistential(ptPlugins) // FIXME: document why this is done.
+
         val tree1: Tree = if (alreadyTyped) tree else typed1(tree, mode, ptWild)
         if (shouldPrint)
           typingStack.showTyped(tree1)
@@ -5585,6 +5606,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         case ex: Exception =>
           // @M causes cyclic reference error
           devWarning(s"exception when typing $tree, pt=$ptPlugins")
+          ex.printStackTrace
           if (context != null && context.unit.exists && tree != null)
             logError("AT: " + tree.pos, ex)
           throw ex

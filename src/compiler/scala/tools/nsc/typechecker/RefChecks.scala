@@ -468,8 +468,8 @@ abstract class RefChecks extends Transform {
             overrideError("cannot be used here - term macros cannot override abstract methods")
           } else if (other.isTermMacro && !member.isTermMacro) { // (1.10)
             overrideError("cannot be used here - only term macros can override term macros")
-          } else if (memberTp.isComplete && memberTp.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)) {
-            //println(s"IsKP member:$member memberTp:$memberTp other:$other otherTp:$otherTp")
+          } else if (other.tpe.isComplete && other.tpe.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)) {
+            // println(s"IsKP member:$member memberTp:$memberTp other:$other otherTp:$otherTp")
           }
             else {
             checkOverrideTypes()

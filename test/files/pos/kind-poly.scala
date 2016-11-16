@@ -3,7 +3,6 @@ object Test {
   case class Bar[A](a: A)
   trait Toto[A, B]
 
-
   // Basic Kind polymorphism sample
   trait Foo[T <: KindPolymorphic] { type Out ; def id(t: Out): Out = t }
 
@@ -98,25 +97,16 @@ object Test {
 
   }
 
-  // SPECIAL CASES
-  def foo0[F <: KindPolymorphic]: F = null.asInstanceOf[F]
 
-  val i = foo0[Int]        // OK
-  val li = foo0[List[Int]]  // OK
-  // foo0[List]                // KO -> neg
-  // val l = foo0[List]        // KO -> neg
-
-  // def foo1[F <: KindPolymorphic, A <: KindPolymorphic]: F[A] = ??? // SHOULD final
-*/
   trait Kinded[M <: KindPolymorphic] { type Out <: KindPolymorphic }
   object Kinded {
     type Aux[M <: KindPolymorphic, Out0 <: KindPolymorphic] = Kinded[M] { type Out = Out0 }
 
-    implicit def kinded0[M <: KindPolymorphic]: Aux[M, M] = new Kinded[M] { type Out = M }
-    implicit def kinded1[M[_] <: KindPolymorphic]: Aux[M, M] = new Kinded[M] { type Out[t] = M[t] }
-    implicit def kinded2[M[_, _] <: KindPolymorphic]: Aux[M, M] = new Kinded[M] { type Out[t, u] = M[t, u] }
+    implicit def kinded0[M]: Aux[M, M] = new Kinded[M] { type Out = M }
+    implicit def kinded1[M[_]]: Aux[M, M] = new Kinded[M] { type Out[t] = M[t] }
+    implicit def kinded2[M[_, _]]: Aux[M, M] = new Kinded[M] { type Out[t, u] = M[t, u] }
   }
-/*
+
   implicitly[Kinded.Aux[Int, Int]]
   implicitly[Kinded.Aux[List, List]]
   implicitly[Kinded.Aux[Map, Map]]
@@ -166,7 +156,7 @@ object Test {
   }
 
 
-  // Same Kind test
+  //IsoKindness Test
 
   trait SameKind[M <: KindPolymorphic, M2 <: KindPolymorphic]
   object SameKind {
@@ -180,12 +170,21 @@ object Test {
 
   sameKind[Int, String]     // OK
   sameKind[List, Bar]       // OK
-  sameKind[List, Bar]       // OK
   sameKind[Map, Toto]       // OK
 
   // sameKind[List, String] // KO
   // sameKind[Map, List]    // KO
   // sameKind[Map, Boolean] // KO
-*/
 
+
+  // SPECIAL CASES
+  def foo0[F <: KindPolymorphic]: F = null.asInstanceOf[F]
+  val i = foo0[Int]         // OK
+  val li = foo0[List[Int]]  // OK
+  // foo0[List]                // KO -> neg
+  // val l = foo0[List]        // KO -> neg
+*/
+  // def foo1[F <: KindPolymorphic, A <: KindPolymorphic]: F[A] = ??? // SHOULD final
+
+  def foo2: KindPolymorphic = ???
 }
