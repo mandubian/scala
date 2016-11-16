@@ -1,10 +1,10 @@
 object Test {
-/*
+
   case class Bar[A](a: A)
   trait Toto[A, B]
 
   // Basic Kind polymorphism sample
-  trait Foo[T <: KindPolymorphic] { type Out ; def id(t: Out): Out = t }
+  trait Foo[T <: AnyKind] { type Out ; def id(t: Out): Out = t }
 
   object Foo {
     implicit def foo0[T] = new Foo[T] { type Out = T }
@@ -12,7 +12,7 @@ object Test {
     implicit def foo2[T[_, _]] = new Foo[T] { type Out = T[Any, Any] }
   }
 
-  def foo[T <: KindPolymorphic](implicit f: Foo[T]): f.type = f
+  def foo[T <: AnyKind](implicit f: Foo[T]): f.type = f
   foo[Int].id(23)
   foo[List].id(List[Any](1, 2, 3))
   foo[Map].id(Map[Any, Any](1 -> "toto", 2 -> "tata", 3 -> "tutu"))
@@ -32,8 +32,8 @@ object Test {
     sealed trait KPNil extends KPList
     case object KPNil extends KPNil
     
-    sealed trait :::[H <: KindPolymorphic, T <: KPList] extends KPList
-    trait KPCons[M <: KindPolymorphic, T <: KPList] extends :::[M, T]  {
+    sealed trait :::[H <: AnyKind, T <: KPList] extends KPList
+    trait KPCons[M <: AnyKind, T <: KPList] extends :::[M, T]  {
       type HL <: HList
       type H
       def head: H
@@ -41,19 +41,19 @@ object Test {
     }
 
     object KPCons {
-      type Aux[M <: KindPolymorphic, T <: KPList, H0, HL0 <: HList] = KPCons[M, T] { type H = H0; type HL = HL0 }
+      type Aux[M <: AnyKind, T <: KPList, H0, HL0 <: HList] = KPCons[M, T] { type H = H0; type HL = HL0 }
       // Polymorphic 
-      trait Apply[M <: KindPolymorphic, A <: HList] { type Out }
+      trait Apply[M <: AnyKind, A <: HList] { type Out }
       object Apply {
-        type Aux[M <: KindPolymorphic, A <: HList, Out0] = Apply[M, A] { type Out = Out0 }
+        type Aux[M <: AnyKind, A <: HList, Out0] = Apply[M, A] { type Out = Out0 }
         implicit def apply0[M]: Aux[M, HNil, M] = new Apply[M, HNil] { type Out = M }
         implicit def apply1[M[_], A]: Aux[M, A :: HNil, M[A]] = new Apply[M, A :: HNil] { type Out = M[A] }
         implicit def apply2[M[_, _], A, B]: Aux[M, A :: B :: HNil, M[A, B]] = new Apply[M, A :: B :: HNil] { type Out = M[A, B] }
       }
 
-      trait Unapply[M <: KindPolymorphic, O] { type Out <: HList }
+      trait Unapply[M <: AnyKind, O] { type Out <: HList }
       object Unapply {
-        type Aux[M <: KindPolymorphic, O, Out0 <: HList] = Unapply[M, O] { type Out = Out0 }
+        type Aux[M <: AnyKind, O, Out0 <: HList] = Unapply[M, O] { type Out = Out0 }
 
         implicit def unapply0[M]: Aux[M, M, HNil] = new Unapply[M, M] { type Out = HNil }
         implicit def unapply1[M[_], A0]: Unapply.Aux[M, M[A0], A0 :: HNil] = new Unapply[M, M[A0]] { type Out = A0 :: HNil }
@@ -61,7 +61,7 @@ object Test {
       }
 
       // the list builder
-      trait KPConsBuilder[M <: KindPolymorphic] {
+      trait KPConsBuilder[M <: AnyKind] {
         def apply[H0, HL0 <: HList, T <: KPList](head0: H0, tail0: T)(implicit unap: Unapply.Aux[M, H0, HL0]): KPCons.Aux[M, T, H0, HL0] = new KPCons[M, T] {
           type HL = HL0
           type H = H0
@@ -70,7 +70,7 @@ object Test {
         }
       }
 
-      def apply[M <: KindPolymorphic] = new KPConsBuilder[M] {}
+      def apply[M <: AnyKind] = new KPConsBuilder[M] {}
     }
 
 
@@ -98,9 +98,9 @@ object Test {
   }
 
 
-  trait Kinded[M <: KindPolymorphic] { type Out <: KindPolymorphic }
+  trait Kinded[M <: AnyKind] { type Out <: AnyKind }
   object Kinded {
-    type Aux[M <: KindPolymorphic, Out0 <: KindPolymorphic] = Kinded[M] { type Out = Out0 }
+    type Aux[M <: AnyKind, Out0 <: AnyKind] = Kinded[M] { type Out = Out0 }
 
     implicit def kinded0[M]: Aux[M, M] = new Kinded[M] { type Out = M }
     implicit def kinded1[M[_]]: Aux[M, M] = new Kinded[M] { type Out[t] = M[t] }
@@ -112,16 +112,16 @@ object Test {
   implicitly[Kinded.Aux[Map, Map]]
 
 
-  trait Kinder[MA] { type M <: KindPolymorphic; type Args <: HList }
+  trait Kinder[MA] { type M <: AnyKind; type Args <: HList }
   object Kinder extends KinderLowerImplicits {
-    type Aux[MA, M0 <: KindPolymorphic, Args0 <: HList] = Kinder[MA] { type M = M0; type Args = Args0 }
+    type Aux[MA, M0 <: AnyKind, Args0 <: HList] = Kinder[MA] { type M = M0; type Args = Args0 }
 
-    implicit def kinder2[M0[_, _] <: KindPolymorphic, A0, B0]: Kinder.Aux[M0[A0, B0], M0, A0 :: B0 :: HNil] = new Kinder[M0[A0, B0]] { type M[t, u] = M0[t, u]; type Args = A0 :: B0 :: HNil }
-    implicit def kinder1[M0[_] <: KindPolymorphic, A0]: Kinder.Aux[M0[A0], M0, A0 :: HNil] = new Kinder[M0[A0]] { type M[t] = M0[t]; type Args = A0 :: HNil }
+    implicit def kinder2[M0[_, _] <: AnyKind, A0, B0]: Kinder.Aux[M0[A0, B0], M0, A0 :: B0 :: HNil] = new Kinder[M0[A0, B0]] { type M[t, u] = M0[t, u]; type Args = A0 :: B0 :: HNil }
+    implicit def kinder1[M0[_] <: AnyKind, A0]: Kinder.Aux[M0[A0], M0, A0 :: HNil] = new Kinder[M0[A0]] { type M[t] = M0[t]; type Args = A0 :: HNil }
   }
 
   trait KinderLowerImplicits {
-    implicit def kinder0[A <: KindPolymorphic]: Kinder.Aux[A, A, HNil] = new Kinder[A] { type M = A; type Args = HNil }    
+    implicit def kinder0[A <: AnyKind]: Kinder.Aux[A, A, HNil] = new Kinder[A] { type M = A; type Args = HNil }    
   }
 
   object New {
@@ -130,17 +130,17 @@ object Test {
 
     sealed trait KPNil extends KPList
     case object KPNil extends KPNil {
-      def :::[H, M <: KindPolymorphic, HL <: HList](h:H)(implicit kinder: Kinder.Aux[H, M, HL]) =
+      def :::[H, M <: AnyKind, HL <: HList](h:H)(implicit kinder: Kinder.Aux[H, M, HL]) =
         New.:::(h, KPNil)
     }
     
-    sealed case class :::[H, T <: KPList, M <: KindPolymorphic, HL0 <: HList](
+    sealed case class :::[H, T <: KPList, M <: AnyKind, HL0 <: HList](
       head: H
     , tail: T
     )(implicit val kinder: Kinder.Aux[H, M, HL0]) extends KPList
 
     final case class KPListOps[L <: KPList](l : L) {
-      def :::[H, M <: KindPolymorphic, HL <: HList](h:H)(implicit kinder: Kinder.Aux[H, M, HL]) =
+      def :::[H, M <: AnyKind, HL <: HList](h:H)(implicit kinder: Kinder.Aux[H, M, HL]) =
         New.:::(h, l)
     }
 
@@ -158,7 +158,7 @@ object Test {
 
   //IsoKindness Test
 
-  trait SameKind[M <: KindPolymorphic, M2 <: KindPolymorphic]
+  trait SameKind[M <: AnyKind, M2 <: AnyKind]
   object SameKind {
 
     implicit def sameKind0[A, B] = new SameKind[A, B] {}
@@ -166,7 +166,7 @@ object Test {
     implicit def sameKind02[M1[_, _], M2[_, _]] = new SameKind[M1, M2] {}
   }
 
-  def sameKind[M1 <: KindPolymorphic, M2 <: KindPolymorphic](implicit sameKind: SameKind[M1, M2]) = sameKind
+  def sameKind[M1 <: AnyKind, M2 <: AnyKind](implicit sameKind: SameKind[M1, M2]) = sameKind
 
   sameKind[Int, String]     // OK
   sameKind[List, Bar]       // OK
@@ -178,13 +178,13 @@ object Test {
 
 
   // SPECIAL CASES
-  def foo0[F <: KindPolymorphic]: F = null.asInstanceOf[F]
+  def foo0[F <: AnyKind]: F = null.asInstanceOf[F]
   val i = foo0[Int]         // OK
   val li = foo0[List[Int]]  // OK
   // foo0[List]                // KO -> neg
   // val l = foo0[List]        // KO -> neg
-*/
-  // def foo1[F <: KindPolymorphic, A <: KindPolymorphic]: F[A] = ??? // SHOULD final
 
-  def foo2: KindPolymorphic = ???
+  // def foo1[F <: AnyKind, A <: AnyKind]: F[A] = ??? // KO
+
+  // def foo2: AnyKind = ??? // KO
 }

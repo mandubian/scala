@@ -108,10 +108,10 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
   private final val InterpolatorCodeRegex  = """\$\{\s*(.*?)\s*\}""".r
   private final val InterpolatorIdentRegex = """\$[$\w]+""".r // note that \w doesn't include $
 
-  def isKindPolymorphic(tpe: Type): Boolean = 
+  def isAnyKind(tpe: Type): Boolean = 
     !tpe.typeSymbol.rawInfo.bounds.hi.typeSymbol.hasFlag(LOCKED) &&
     !tpe.typeSymbol.hasFlag(LOCKED) &&
-    tpe.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
+    tpe.typeSymbol.isNonBottomSubClass(definitions.AnyKindClass)
 
   abstract class Typer(context0: Context) extends TyperDiagnostics with Adaptation with Tag with PatternTyper with TyperContextErrors {
     import context0.unit
@@ -982,13 +982,13 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         if (mode.inFunMode)
           tree
         else if (properTypeRequired && tree.symbol.typeParams.nonEmpty /*&&
-          (!settings.YkindPolymorphism || (tree.symbol.rawInfo.isComplete && isKindPolymorphic(tree.tpe)))*/
+          (!settings.YkindPolymorphism || (tree.symbol.rawInfo.isComplete && isAnyKind(tree.tpe)))*/
         )  { // (7) 
           // println(s""">>>>> MissingTypeParametersError <<<<<""")     
           MissingTypeParametersError(tree)
         }
         else if (kindArityMismatch && !kindArityMismatchOk /*&&
-          (!settings.YkindPolymorphism || (tree.symbol.rawInfo.isComplete && isKindPolymorphic(tree.tpe)))*/
+          (!settings.YkindPolymorphism || (tree.symbol.rawInfo.isComplete && isAnyKind(tree.tpe)))*/
         ) {  // (7.1) @M: check kind-arity                       
           // println(s""">>>>> KindArityMismatchError <<<<<""")     
           KindArityMismatchError(tree, pt)
@@ -2287,11 +2287,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
       val tparams1 = ddef.tparams mapConserve typedTypeDef
       val vparamss1 = ddef.vparamss mapConserve (_ mapConserve typedValDef)
 
-      // if(settings.YkindPolymorphism && (ddef.tpt.tpe.typeSymbol eq definitions.KindPolymorphicClass)) {
-      //   println("typedDefDef ERROR")
-      //   MissingTypeParametersError(ddef.tpt)
-      // }
-
       warnTypeParameterShadow(tparams1, meth)
 
       meth.annotations.map(_.completeInfo())
@@ -2304,9 +2299,9 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
       checkNonCyclic(ddef, tpt1)
       ddef.tpt.setType(tpt1.tpe)
 
-      println(s"typedDefDef ${ddef.tpt} tpe:${ddef.tpt.tpe.typeSymbol} kp:${definitions.KindPolymorphicClass} eq:${ddef.tpt.tpe eq definitions.KindPolymorphicClass.tpe}")
-      if(settings.YkindPolymorphism && (ddef.tpt.tpe eq definitions.KindPolymorphicClass.tpe)) {
-        KindPolymorphicTypeError(ddef.tpt)
+      println(s"typedDefDef ${ddef.tpt} tpe:${ddef.tpt.tpe.typeSymbol} kp:${definitions.AnyKindClass} eq:${ddef.tpt.tpe eq definitions.AnyKindClass.tpe}")
+      if(settings.YkindPolymorphism && (ddef.tpt.tpe eq definitions.AnyKindClass.tpe)) {
+        AnyKindTypeError(ddef.tpt)
       }
       val typedMods = typedModifiers(ddef.mods)
       var rhs1 =
@@ -4075,7 +4070,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
             }
             val resultpe = restpe.instantiateTypeParams(tparams, targs)
 
-            if(settings.YkindPolymorphism && (resultpe.resultType.typeParams.nonEmpty || (resultpe.resultType eq definitions.KindPolymorphicClass))) {
+            if(settings.YkindPolymorphism && (resultpe.resultType.typeParams.nonEmpty || (resultpe.resultType eq definitions.AnyKindClass))) {
               InferredReturnTypeError(fun, resultpe)
             } else
             //@M substitution in instantiateParams needs to be careful!
@@ -5100,7 +5095,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
           if (sameLength(tparams, args)) {
             // @M: kind-arity checking is done here and in adapt, full kind-checking is in checkKindBounds (in Infer)
             val args1 = map2Conserve(args, tparams) { (arg, tparam) =>
-              if(settings.YkindPolymorphism && tparam.rawInfo.isComplete && isKindPolymorphic(tparam.tpe)) {
+              if(settings.YkindPolymorphism && tparam.rawInfo.isComplete && isAnyKind(tparam.tpe)) {
                 typedHigherKindedType(arg, mode)
               }
               else {
@@ -5297,7 +5292,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         // @M maybe the well-kindedness check should be done when checking the type arguments conform to the type parameters' bounds?
         val args1 = if (sameLength(args, tparams)) map2Conserve(args, tparams) {
           (arg, tparam) =>            
-            if(settings.YkindPolymorphism && tparam.rawInfo.isComplete && isKindPolymorphic(tparam.tpe) /*&& mode.inPolyMode*/) {
+            if(settings.YkindPolymorphism && tparam.rawInfo.isComplete && isAnyKind(tparam.tpe) /*&& mode.inPolyMode*/) {
               typedHigherKindedType(arg, mode)
             }
             else typedHigherKindedType(arg, mode, Kind.FromParams(tparam.typeParams))

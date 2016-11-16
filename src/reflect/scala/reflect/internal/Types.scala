@@ -4388,12 +4388,12 @@ trait Types
       }
   }
 
-  def isKindPolymorphic(tpe: Type): Boolean =
+  def isAnyKind(tpe: Type): Boolean =
     !tpe.typeSymbol.rawInfo.bounds.hi.typeSymbol.hasFlag(LOCKED) &&
     !tpe.typeSymbol.hasFlag(LOCKED) &&
-    tpe.typeSymbol.isNonBottomSubClass(definitions.KindPolymorphicClass)
+    tpe.typeSymbol.isNonBottomSubClass(definitions.AnyKindClass)
 
-  def isKindPolymorphicBounds(bounds: TypeBounds): Boolean = isKindPolymorphic(bounds.hi)
+  def isAnyKindBounds(bounds: TypeBounds): Boolean = isAnyKind(bounds.hi)
 
   /** Do type arguments `targs` conform to formal parameters `tparams`?
    */
@@ -4402,9 +4402,9 @@ trait Types
     if (targs exists typeHasAnnotations)
       bounds = adaptBoundsToAnnotations(bounds, tparams, targs)
     (bounds corresponds targs) { (bounds: TypeBounds, tp: Type) => 
-      // tries to match KindPolymorphic to let it pass
+      // tries to match AnyKind to let it pass
       println(s"isWithinBounds pre:$pre owner:$owner tparams:$tparams targs:$targs")
-      if(settings.YkindPolymorphism && isKindPolymorphicBounds(bounds)) {
+      if(settings.YkindPolymorphism && isAnyKindBounds(bounds)) {
         true
       } else {
         boundsContainType(bounds, tp)

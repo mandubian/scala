@@ -386,7 +386,7 @@ trait Definitions extends api.StandardDefinitions {
     lazy val RepeatedParamClass     = specialPolyClass(tpnme.REPEATED_PARAM_CLASS_NAME, COVARIANT)(tparam => seqType(tparam.tpe))
 
     // TODO : requires ABSTRACT | TRAIT | FINAL ????
-    lazy val KindPolymorphicClass   = enterNewClass(ScalaPackageClass, tpnme.KindPolymorphic, AnyTpe :: Nil, ABSTRACT | TRAIT) markAllCompleted
+    lazy val AnyKindClass   = enterNewClass(ScalaPackageClass, tpnme.AnyKind, AnyTpe :: Nil, ABSTRACT | TRAIT) markAllCompleted
 
     def isByNameParamType(tp: Type)        = tp.typeSymbol == ByNameParamClass
     def isScalaRepeatedParamType(tp: Type) = tp.typeSymbol == RepeatedParamClass
@@ -758,7 +758,7 @@ trait Definitions extends api.StandardDefinitions {
     def isStable(tp: Type): Boolean = tp match {
       case _: SingletonType                             => true
       case NoPrefix                                     => true
-      case TypeRef(_, NothingClass | SingletonClass | KindPolymorphicClass, _) => true
+      case TypeRef(_, NothingClass | SingletonClass | AnyKindClass, _) => true
       case TypeRef(_, sym, _) if sym.isAbstractType     => tp.bounds.hi.typeSymbol isSubClass SingletonClass
       case TypeRef(pre, sym, _) if sym.isModuleClass    => isStable(pre)
       case TypeRef(_, _, _) if tp ne tp.dealias         => isStable(tp.dealias)
@@ -1363,7 +1363,7 @@ trait Definitions extends api.StandardDefinitions {
       NullClass,
       NothingClass,
       SingletonClass,
-      KindPolymorphicClass
+      AnyKindClass
     )
     /** Lists core methods that don't have underlying bytecode, but are synthesized on-the-fly in every reflection universe */
     lazy val syntheticCoreMethods = List(

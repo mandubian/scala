@@ -692,8 +692,8 @@ trait ContextErrors {
         setError(tree)
       }
 
-      def KindPolymorphicTypeError(tree: Tree) = {
-        issueNormalTypeError(tree, s"KindPolymorphic can't be used as a real type")
+      def AnyKindTypeError(tree: Tree) = {
+        issueNormalTypeError(tree, s"AnyKind can't be used as a real type")
         setError(tree)
       }
 
