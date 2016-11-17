@@ -5656,10 +5656,9 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
     def typedType(tree: Tree): Tree = typedType(tree, NOmode)
 
     /** Types a higher-kinded type tree -- pt denotes the expected kind and must be one of `Kind.WildCard` and `Kind.FromParams` */
-    def typedHigherKindedType(tree: Tree, mode: Mode, pt: Type): Tree = {
+    def typedHigherKindedType(tree: Tree, mode: Mode, pt: Type): Tree =
       if (pt != Kind.Wildcard && pt.typeParams.isEmpty) typedType(tree, mode) // kind is known and it's *
       else context withinTypeConstructorAllowed typed(tree, NOmode, pt)
-    }
 
     def typedHigherKindedType(tree: Tree, mode: Mode): Tree =
       context withinTypeConstructorAllowed typed(tree)
