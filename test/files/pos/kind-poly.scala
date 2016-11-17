@@ -49,7 +49,7 @@ object Test {
   implicitly[Kinded.Aux[Int, Int]]
   implicitly[Kinded.Aux[List, List]]
   implicitly[Kinded.Aux[Map, Map]]
-
+  
   ////////////////////////////////////////////////
   // Extract Kind from a type
   trait Kinder[MA] { type M <: AnyKind; type Args <: HList }
@@ -214,4 +214,6 @@ object Test {
 
   }
 
+
+  
 }
