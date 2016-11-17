@@ -108,7 +108,9 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
   private final val InterpolatorCodeRegex  = """\$\{\s*(.*?)\s*\}""".r
   private final val InterpolatorIdentRegex = """\$[$\w]+""".r // note that \w doesn't include $
 
-  def isAnyKind(tpe: Type): Boolean = 
+  // if using Kind Polymorphism, we check those flags to avoid CyclicError & TypeError
+  // if there is any better way to do it, it would be cool to replace those
+  def isAnyKind(tpe: Type): Boolean =
     !tpe.typeSymbol.rawInfo.bounds.hi.typeSymbol.hasFlag(LOCKED) &&
     !tpe.typeSymbol.hasFlag(LOCKED) &&
     tpe.typeSymbol.isNonBottomSubClass(definitions.AnyKindClass)
@@ -981,16 +983,10 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         // but this needs additional investigation, because it crashes t5228, gadts1 and maybe something else
         if (mode.inFunMode)
           tree
-        else if (properTypeRequired && tree.symbol.typeParams.nonEmpty /*&&
-          (!settings.YkindPolymorphism || (tree.symbol.rawInfo.isComplete && isAnyKind(tree.tpe)))*/
-        )  { // (7) 
-          // println(s""">>>>> MissingTypeParametersError <<<<<""")     
+        else if (properTypeRequired && tree.symbol.typeParams.nonEmpty)  { // (7) 
           MissingTypeParametersError(tree)
         }
-        else if (kindArityMismatch && !kindArityMismatchOk /*&&
-          (!settings.YkindPolymorphism || (tree.symbol.rawInfo.isComplete && isAnyKind(tree.tpe)))*/
-        ) {  // (7.1) @M: check kind-arity                       
-          // println(s""">>>>> KindArityMismatchError <<<<<""")     
+        else if (kindArityMismatch && !kindArityMismatchOk) {  // (7.1) @M: check kind-arity                       
           KindArityMismatchError(tree, pt)
         } else tree match { // (6)
           case TypeTree() => tree
@@ -2299,7 +2295,8 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
       checkNonCyclic(ddef, tpt1)
       ddef.tpt.setType(tpt1.tpe)
 
-      if(settings.YkindPolymorphism && (ddef.tpt.tpe eq definitions.AnyKindClass.tpe)) {
+      // AnyKind shouldn't be usable as a real type
+      if(ddef.tpt.tpe eq definitions.AnyKindClass.tpe) {
         AnyKindTypeError(ddef.tpt)
       }
       val typedMods = typedModifiers(ddef.mods)
@@ -4069,6 +4066,8 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
             }
             val resultpe = restpe.instantiateTypeParams(tparams, targs)
 
+            // when using YkindPolymorphism, in case resulType has been inferred to a Type Contructor or AnyKind,
+            // let's inform with a nice error
             if(settings.YkindPolymorphism && (resultpe.resultType.typeParams.nonEmpty || (resultpe.resultType eq definitions.AnyKindClass))) {
               InferredReturnTypeError(fun, resultpe)
             } else
@@ -5094,6 +5093,8 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
           if (sameLength(tparams, args)) {
             // @M: kind-arity checking is done here and in adapt, full kind-checking is in checkKindBounds (in Infer)
             val args1 = map2Conserve(args, tparams) { (arg, tparam) =>
+              // if in KindPolymorphism, let's check type is complete, that it is AnyKind and use the inTypeConstructorAllowed mode
+              // in order to avoid ProperTypeRequired and let inference happen later
               if(settings.YkindPolymorphism && tparam.rawInfo.isComplete && isAnyKind(tparam.tpe)) {
                 typedHigherKindedType(arg, mode)
               }
@@ -5291,7 +5292,9 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         // @M maybe the well-kindedness check should be done when checking the type arguments conform to the type parameters' bounds?
         val args1 = if (sameLength(args, tparams)) map2Conserve(args, tparams) {
           (arg, tparam) =>            
-            if(settings.YkindPolymorphism && tparam.rawInfo.isComplete && isAnyKind(tparam.tpe) /*&& mode.inPolyMode*/) {
+            // if in KindPolymorphism, let's check type is complete, that it is AnyKind and use the inTypeConstructorAllowed mode
+            // in order to avoid ProperTypeRequired and let inference happen later
+            if(settings.YkindPolymorphism && tparam.rawInfo.isComplete && isAnyKind(tparam.tpe)) {
               typedHigherKindedType(arg, mode)
             }
             else typedHigherKindedType(arg, mode, Kind.FromParams(tparam.typeParams))
@@ -5600,7 +5603,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         case ex: Exception =>
           // @M causes cyclic reference error
           devWarning(s"exception when typing $tree, pt=$ptPlugins")
-          ex.printStackTrace
           if (context != null && context.unit.exists && tree != null)
             logError("AT: " + tree.pos, ex)
           throw ex
