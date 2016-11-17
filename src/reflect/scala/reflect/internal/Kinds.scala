@@ -151,10 +151,6 @@ trait Kinds {
         log("checkKindBoundsHK under params: "+ underHKParams +" with args "+ withHKArgs)
       }
 
-      // println("checkKindBoundsHK expected: "+ param +" with params "+ hkparams +" by definition in "+ paramowner)
-      // println("checkKindBoundsHK supplied: "+ arg +" with params "+ hkargs +" from "+ owner)
-      // println("checkKindBoundsHK under params: "+ underHKParams +" with args "+ withHKArgs)
-
       def isAnyKind = settings.YkindPolymorphism && param.tpe.typeSymbol.isNonBottomSubClass(definitions.AnyKindClass)
 
       // if using Kind Polymorphism, let it pass now and let inference happen a bit later
@@ -162,9 +158,7 @@ trait Kinds {
         // Any and Nothing are kind-overloaded
         if (arg == AnyClass || arg == NothingClass) NoKindErrors
         // shortcut: always set error, whether explainTypesOrNot
-        else {
-          return kindErrors.arityError(arg -> param)
-        }
+        else return kindErrors.arityError(arg -> param)
       }
       else foreach2(hkargs, hkparams) { (hkarg, hkparam) =>
         if (hkparam.typeParams.isEmpty && hkarg.typeParams.isEmpty) { // base-case: kind *

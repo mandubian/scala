@@ -1520,15 +1520,8 @@ trait Types
       }
     }
     //Console.println("baseTypeSeq(" + typeSymbol + ") = " + baseTypeSeqCache.toList);//DEBUG
-    if (tpe.baseTypeSeqCache eq undetBaseTypeSeq) {
-      try {
-        throw new TypeError("illegal cyclic inheritance involving " + tpe.typeSymbol)
-      } catch {
-        case ex: Throwable =>
-          ex.printStackTrace
-          throw ex
-      }
-    }
+    if (tpe.baseTypeSeqCache eq undetBaseTypeSeq)
+      throw new TypeError("illegal cyclic inheritance involving " + tpe.typeSymbol)
   }
 
   object baseClassesCycleMonitor {
@@ -2437,15 +2430,8 @@ trait Types
         }
       }
     }
-    if (tpe.baseTypeSeqCache == undetBaseTypeSeq) {
-      try {
-        throw new TypeError("illegal cyclic inheritance involving " + tpe.sym)
-      } catch {
-        case ex: Throwable =>
-          ex.printStackTrace
-          throw ex
-      }
-    }
+    if (tpe.baseTypeSeqCache == undetBaseTypeSeq)
+      throw new TypeError("illegal cyclic inheritance involving " + tpe.sym)
   }
 
   /** A class representing a method type with parameters.
@@ -4388,12 +4374,12 @@ trait Types
       }
   }
 
+  // if using Kind Polymorphism, we check those flags to avoid CyclicError & TypeError
+  // if there is any better way to do it, it would be cool to replace those
   def isAnyKind(tpe: Type): Boolean =
     !tpe.typeSymbol.rawInfo.bounds.hi.typeSymbol.hasFlag(LOCKED) &&
     !tpe.typeSymbol.hasFlag(LOCKED) &&
     tpe.typeSymbol.isNonBottomSubClass(definitions.AnyKindClass)
-
-  def isAnyKindBounds(bounds: TypeBounds): Boolean = isAnyKind(bounds.hi)
 
   /** Do type arguments `targs` conform to formal parameters `tparams`?
    */
@@ -4402,12 +4388,11 @@ trait Types
     if (targs exists typeHasAnnotations)
       bounds = adaptBoundsToAnnotations(bounds, tparams, targs)
     (bounds corresponds targs) { (bounds: TypeBounds, tp: Type) => 
-      // tries to match AnyKind to let it pass
-      if(settings.YkindPolymorphism && isAnyKindBounds(bounds)) {
-        true
-      } else {
-        boundsContainType(bounds, tp)
-      }
+      // in Kind Polymorphism only, don't check bounds for AnyKind to allow syntax
+      // type Foo[M <: AnyKind]
+      // def foo[List] = new Foo[List]
+      if(settings.YkindPolymorphism && isAnyKind(bounds.hi)) true
+      else boundsContainType(bounds, tp)
     }
   }
 

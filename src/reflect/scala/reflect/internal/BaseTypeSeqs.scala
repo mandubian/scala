@@ -55,7 +55,6 @@ trait BaseTypeSeqs {
     def apply(i: Int): Type =
       if(pending contains i) {
         pending.clear()
-        println("pending")
         throw CyclicInheritance
       } else {
         def computeLazyType(rtp: RefinedType): Type = {

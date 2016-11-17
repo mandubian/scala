@@ -469,7 +469,7 @@ abstract class RefChecks extends Transform {
           } else if (other.isTermMacro && !member.isTermMacro) { // (1.10)
             overrideError("cannot be used here - only term macros can override term macros")
           } else if (other.tpe.isComplete && other.tpe.typeSymbol.isNonBottomSubClass(definitions.AnyKindClass)) {
-            // println(s"IsKP member:$member memberTp:$memberTp other:$other otherTp:$otherTp")
+            // a AnyKind bounded type can be overriden by a type not bounded by AnyKind (this is the purpose of it)
           }
             else {
             checkOverrideTypes()

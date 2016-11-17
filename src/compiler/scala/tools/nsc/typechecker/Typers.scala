@@ -108,13 +108,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
   private final val InterpolatorCodeRegex  = """\$\{\s*(.*?)\s*\}""".r
   private final val InterpolatorIdentRegex = """\$[$\w]+""".r // note that \w doesn't include $
 
-  // if using Kind Polymorphism, we check those flags to avoid CyclicError & TypeError
-  // if there is any better way to do it, it would be cool to replace those
-  def isAnyKind(tpe: Type): Boolean =
-    !tpe.typeSymbol.rawInfo.bounds.hi.typeSymbol.hasFlag(LOCKED) &&
-    !tpe.typeSymbol.hasFlag(LOCKED) &&
-    tpe.typeSymbol.isNonBottomSubClass(definitions.AnyKindClass)
-
   abstract class Typer(context0: Context) extends TyperDiagnostics with Adaptation with Tag with PatternTyper with TyperContextErrors {
     import context0.unit
     import typeDebug.ptTree
@@ -156,8 +149,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
 
     /** Find implicit arguments and pass them to given tree.
      */
-    def applyImplicitArgs(fun: Tree): Tree = {
-      fun.tpe match {
+    def applyImplicitArgs(fun: Tree): Tree = fun.tpe match {
       case MethodType(params, _) =>
         val argResultsBuff = new ListBuffer[SearchResult]()
         val argBuff = new ListBuffer[Tree]()
@@ -210,7 +202,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         new ApplyToImplicitArgs(fun, args) setPos fun.pos
       case ErrorType =>
         fun
-    } }
+    }
 
     def viewExists(from: Type, to: Type): Boolean = (
          !from.isError
@@ -954,7 +946,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
              context.inTypeConstructorAllowed
           && !sameLength(tree.tpe.typeParams, pt.typeParams)
         )
-
         // Note that we treat Any and Nothing as kind-polymorphic.
         // We can't perform this check when typing type arguments to an overloaded method before the overload is resolved
         // (or in the case of an error type) -- this is indicated by pt == WildcardType (see case TypeApply in typed1).
@@ -963,19 +954,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
           case _                       => pt == WildcardType
         }
 
-        // println(s""">>>>> properTypeRequired: $properTypeRequired <<<<<
-        //   tree.symbol:${tree.symbol}
-        //   original:${original}
-        //   tree.hasSymbolField:${tree.hasSymbolField}
-        //   context.inTypeConstructorAllowed:${context.inTypeConstructorAllowed}
-        //   kindArityMismatch:$kindArityMismatch
-        //   kindArityMismatchOk:$kindArityMismatchOk
-        //   pt:${pt == WildcardType}
-        //   pt:${pt.typeParams}
-        //   tree.tpe.typeParams:${tree.tpe.typeParams}
-        //   mode:$mode
-        // """)     
-
         // todo. It would make sense when mode.inFunMode to instead use
         //    tree setType tree.tpe.normalize
         // when typechecking, say, TypeApply(Ident(`some abstract type symbol`), List(...))
@@ -983,12 +961,11 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         // but this needs additional investigation, because it crashes t5228, gadts1 and maybe something else
         if (mode.inFunMode)
           tree
-        else if (properTypeRequired && tree.symbol.typeParams.nonEmpty)  { // (7) 
+        else if (properTypeRequired && tree.symbol.typeParams.nonEmpty)  // (7) 
           MissingTypeParametersError(tree)
-        }
-        else if (kindArityMismatch && !kindArityMismatchOk) {  // (7.1) @M: check kind-arity                       
+        else if (kindArityMismatch && !kindArityMismatchOk) // (7.1) @M: check kind-arity                       
           KindArityMismatchError(tree, pt)
-        } else tree match { // (6)
+        else tree match { // (6)
           case TypeTree() => tree
           case _          => TypeTree(tree.tpe) setOriginal tree
         }
@@ -1120,7 +1097,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
                   val coercion =
                     if (context.implicitsEnabled) inferView(tree, tree.tpe, pt)
                     else EmptyTree
-
                   if (coercion ne EmptyTree) {
                     def msg = s"inferred view from ${tree.tpe} to $pt via $coercion: ${coercion.tpe}"
                     if (settings.logImplicitConv) context.echo(tree.pos, msg)
@@ -1161,34 +1137,26 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
             case _                                               => applyPossible
           }
         }
-
         if (tree.isType)
           adaptType()
         else if (mode.typingExprNotFun && treeInfo.isMacroApplication(tree) && !isMacroExpansionSuppressed(tree))
           macroExpand(this, tree, mode, pt)
-        else if (mode.typingConstructorPattern){
+        else if (mode.typingConstructorPattern)
           typedConstructorPattern(tree, pt)
-        }
-        else if (shouldInsertApply(tree)) {
+        else if (shouldInsertApply(tree))
           insertApply()
-        }
         else if (hasUndetsInMonoMode) { // (9)
           assert(!context.inTypeConstructorAllowed, context) //@M
           instantiatePossiblyExpectingUnit(tree, mode, pt)
         }
-        else if (tree.tpe <:< pt) {
+        else if (tree.tpe <:< pt)
           tree
-        }
         else if (mode.inPatternMode && { inferModulePattern(tree, pt); isPopulated(tree.tpe, approximateAbstracts(pt)) })
           tree
         else {
           val constFolded = constfold(tree, pt)
-          if (constFolded.tpe <:< pt) {
-            adapt(constFolded, mode, pt, original) // set stage for (0)
-          }
-          else {
-            adaptExprNotFunMode() // (10) -- (15)
-          }
+          if (constFolded.tpe <:< pt) adapt(constFolded, mode, pt, original) // set stage for (0)
+          else adaptExprNotFunMode() // (10) -- (15)
         }
       }
 
@@ -1303,7 +1271,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
 
             typedQualifier(atPos(qual.pos)(new ApplyImplicitView(coercion, List(qual))))
         }
-
       }
       else qual
     }
@@ -2050,7 +2017,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
           else context
         newTyper(maybeConstrCtx.makeNewScope(vdef, sym))
       }
-
       valDefTyper.typedValDefImpl(vdef)
     }
 
@@ -2058,6 +2024,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
     private def typedValDefImpl(vdef: ValDef) = {
       val sym = vdef.symbol.initialize
       val typedMods = typedModifiers(vdef.mods)
+
       sym.annotations.map(_.completeInfo())
       val tpt1 = checkNoEscaping.privates(sym, typedType(vdef.tpt))
       checkNonCyclic(vdef, tpt1)
@@ -4134,6 +4101,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
           case _ =>
             gen.mkTuple(List(CODE.LIT(""), arg))
         }
+
         val t = treeCopy.Apply(orig, unmarkDynamicRewrite(fun), args map argToBinding)
         wrapErrors(t, _.typed(t, mode, pt))
       }
@@ -5090,6 +5058,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
           AppliedTypeNoParametersError(tree, tpt1.tpe)
         } else {
           val tparams = tpt1.symbol.typeParams
+
           if (sameLength(tparams, args)) {
             // @M: kind-arity checking is done here and in adapt, full kind-checking is in checkKindBounds (in Infer)
             val args1 = map2Conserve(args, tparams) { (arg, tparam) =>
@@ -5113,6 +5082,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
               }
             }
             val argtypes = mapList(args1)(treeTpe)
+
             foreach2(args, tparams) { (arg, tparam) =>
               // note: can't use args1 in selector, because Binds got replaced
               val asym = arg.symbol
@@ -5139,7 +5109,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
             }
             val original = treeCopy.AppliedTypeTree(tree, tpt1, args1)
             val result = TypeTree(appliedType(tpt1.tpe, argtypes)) setOriginal original
-            if (isPoly) {// did the type application (performed by appliedType) involve an unchecked beta-reduction?
+            if (isPoly) // did the type application (performed by appliedType) involve an unchecked beta-reduction?
               TypeTreeWithDeferredRefCheck(){ () =>
                 // wrap the tree and include the bounds check -- refchecks will perform this check (that the beta reduction was indeed allowed) and unwrap
                 // we can't simply use original in refchecks because it does not contains types
@@ -5147,7 +5117,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
                 checkBounds(result, tpt1.tpe.prefix, tpt1.symbol.owner, tpt1.symbol.typeParams, argtypes, "")
                 result // you only get to see the wrapped tree after running this check :-p
               } setType (result.tpe) setPos(result.pos)
-            }
             else result
           } else if (tparams.isEmpty) {
             AppliedTypeNoParametersError(tree, tpt1.tpe)
@@ -5536,8 +5505,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         else
           typedInternal(tree, mode, pt)
       )
-
-
       val startByType = if (Statistics.canEnable) Statistics.pushTimer(byTypeStack, byTypeNanos(tree.getClass)) else null
       if (Statistics.canEnable) Statistics.incCounter(visitsByType, tree.getClass)
       try body
@@ -5562,7 +5529,6 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
           ptPlugins // SI-5022 don't widen pt for patterns as types flow from it to the case body.
         else
           dropExistential(ptPlugins) // FIXME: document why this is done.
-
         val tree1: Tree = if (alreadyTyped) tree else typed1(tree, mode, ptWild)
         if (shouldPrint)
           typingStack.showTyped(tree1)
@@ -5575,9 +5541,8 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
         tree1 modifyType (pluginsTyped(_, this, tree1, mode, ptPlugins))
 
         val result =
-          if (tree1.isEmpty) {
-            tree1
-          } else {
+          if (tree1.isEmpty) tree1
+          else {
             val result = adapt(tree1, mode, ptPlugins, tree)
             if (hasPendingMacroExpansions) macroExpandAll(this, result) else result
           }
@@ -5590,6 +5555,7 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
 
         if (mode.inPatternMode && !mode.inPolyMode && result.isType)
           PatternMustBeValue(result, pt)
+
         result
       }
 
@@ -5691,15 +5657,12 @@ trait Typers extends Adaptations with Tags with TypersTracking with PatternTyper
 
     /** Types a higher-kinded type tree -- pt denotes the expected kind and must be one of `Kind.WildCard` and `Kind.FromParams` */
     def typedHigherKindedType(tree: Tree, mode: Mode, pt: Type): Tree = {
-      if (pt != Kind.Wildcard && pt.typeParams.isEmpty) {
-        typedType(tree, mode) // kind is known and it's *
-      }
+      if (pt != Kind.Wildcard && pt.typeParams.isEmpty) typedType(tree, mode) // kind is known and it's *
       else context withinTypeConstructorAllowed typed(tree, NOmode, pt)
     }
 
-    def typedHigherKindedType(tree: Tree, mode: Mode): Tree = {
+    def typedHigherKindedType(tree: Tree, mode: Mode): Tree =
       context withinTypeConstructorAllowed typed(tree)
-    }
 
     /** Types a type constructor tree used in a new or supertype */
     def typedTypeConstructor(tree: Tree, mode: Mode): Tree = {
